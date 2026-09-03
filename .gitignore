@@ -1,0 +1,47 @@
+# Dependencies
+node_modules/
+__pycache__/
+*.pyc
+venv/
+.venv/
+
+# Environment
+.env
+.env.local
+.env.*.local
+
+# Build
+.next/
+out/
+build/
+dist/
+*.egg-info/
+
+# Data (too large for GitHub)
+data/
+uploads/
+results/
+*.img
+*.tif
+*.tiff
+*.fits
+
+# Model weights
+backend/app/ml/weights/
+*.pth
+*.pt
+*.onnx
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*

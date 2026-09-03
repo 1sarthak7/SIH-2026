@@ -1,0 +1,120 @@
+.dropzone {
+  position: relative;
+  border: 2px dashed rgba(120, 160, 255, 0.3);
+  border-radius: 16px;
+  padding: 40px 24px;
+  text-align: center;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  background: rgba(15, 20, 40, 0.6);
+  backdrop-filter: blur(12px);
+  cursor: pointer;
+  min-height: 220px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.dropzone:hover {
+  border-color: rgba(120, 160, 255, 0.6);
+  background: rgba(20, 30, 60, 0.7);
+  transform: translateY(-2px);
+  box-shadow: 0 8px 32px rgba(80, 120, 255, 0.15);
+}
+
+.dragging {
+  border-color: #5b8def;
+  background: rgba(40, 60, 120, 0.4);
+  transform: scale(1.02);
+  box-shadow: 0 12px 40px rgba(80, 120, 255, 0.25);
+}
+
+.hasFile {
+  border-color: rgba(80, 220, 140, 0.5);
+  background: rgba(20, 40, 30, 0.6);
+}
+
+.hasFile:hover {
+  border-color: rgba(80, 220, 140, 0.7);
+}
+
+.fileInput {
+  display: none;
+}
+
+.label {
+  cursor: pointer;
+  width: 100%;
+}
+
+.placeholder {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+}
+
+.uploadIcon {
+  color: rgba(120, 160, 255, 0.6);
+  transition: color 0.3s;
+}
+
+.dropzone:hover .uploadIcon {
+  color: rgba(120, 160, 255, 0.9);
+}
+
+.title {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: #e0e8ff;
+  letter-spacing: 0.02em;
+}
+
+.subtitle {
+  font-size: 0.85rem;
+  color: rgba(180, 195, 230, 0.7);
+}
+
+.hint {
+  font-size: 0.75rem;
+  color: rgba(120, 160, 255, 0.7);
+  background: rgba(80, 120, 255, 0.1);
+  padding: 4px 12px;
+  border-radius: 20px;
+  margin-top: 4px;
+}
+
+.formats {
+  font-size: 0.7rem;
+  color: rgba(150, 165, 200, 0.5);
+  margin-top: 4px;
+}
+
+.fileInfo {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 8px;
+}
+
+.fileIcon {
+  font-size: 2rem;
+}
+
+.fileName {
+  font-size: 0.95rem;
+  font-weight: 600;
+  color: #50dc8c;
+  word-break: break-all;
+  max-width: 200px;
+}
+
+.fileSize {
+  font-size: 0.8rem;
+  color: rgba(180, 195, 230, 0.7);
+}
+
+.changeHint {
+  font-size: 0.7rem;
+  color: rgba(150, 165, 200, 0.5);
+  margin-top: 4px;
+}
