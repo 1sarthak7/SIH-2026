@@ -24,7 +24,12 @@ async def lifespan(app: FastAPI):
     logger.info(f"CUDA available: {torch.cuda.is_available()}")
     if torch.cuda.is_available():
         logger.info(f"GPU: {torch.cuda.get_device_name(0)}")
-        logger.info(f"VRAM: {torch.cuda.get_device_properties(0).total_memory / 1024**3:.1f} GB")
+        try:
+            props = torch.cuda.get_device_properties(0)
+            vram = getattr(props, 'total_memory', None) or getattr(props, 'total_mem', 0)
+            logger.info(f"VRAM: {vram / 1024**3:.1f} GB")
+        except Exception:
+            logger.info("VRAM: (could not detect)")
     else:
         logger.warning("No GPU detected — falling back to CPU. Inference will be slower.")
 
