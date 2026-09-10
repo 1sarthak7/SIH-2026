@@ -22,31 +22,67 @@ from app.services.preprocessing_utils import (
 )
 
 # Maximum dimension for processing (downsample if larger)
-MAX_PROCESSING_DIM = 4096
-MAX_PATCHES = 40  # Limit total patches per image
+MAX_PROCESSING_DIM = 8192
+MIN_PROCESSING_DIM = 1024  # Minimum dimension to preserve detail
+MAX_PATCHES = 40
+MAX_STRIP_SECTIONS = 5  # For very tall strip images, sample this many sections
 
 
 def _smart_downsample(image: np.ndarray, max_dim: int = MAX_PROCESSING_DIM) -> tuple[np.ndarray, float]:
     """
-    Downsample image if it's too large for efficient processing.
+    Downsample image intelligently for strip (pushbroom) images.
     
-    Returns:
-        - downsampled image
-        - scale factor (for mapping coordinates back)
+    OHRC/TMC images are strips: ~12000px wide but 100,000+ px tall.
+    Simple max-dim downsampling destroys the width. Instead:
+    - Ensure the SHORT dimension stays >= MIN_PROCESSING_DIM
+    - For very tall strips, sample evenly-spaced sections
     """
     h, w = image.shape[:2]
     max_side = max(h, w)
+    min_side = min(h, w)
 
     if max_side <= max_dim:
         return image, 1.0
 
+    # Calculate scale based on max dimension
     scale = max_dim / max_side
+    
+    # But ensure min dimension stays at least MIN_PROCESSING_DIM
+    if min_side * scale < MIN_PROCESSING_DIM:
+        scale = MIN_PROCESSING_DIM / min_side
+        logger.info(f"  Adjusted scale to preserve min dimension >= {MIN_PROCESSING_DIM}px")
+
     new_h = int(h * scale)
     new_w = int(w * scale)
 
     logger.info(f"  Downsampling: {w}×{h} → {new_w}×{new_h} (scale={scale:.4f})")
     downsampled = cv2.resize(image, (new_w, new_h), interpolation=cv2.INTER_AREA)
     return downsampled, scale
+
+
+def _sample_strip_sections(image: np.ndarray, num_sections: int = MAX_STRIP_SECTIONS, 
+                           section_height: int = 2048) -> list[tuple[np.ndarray, int]]:
+    """
+    For very tall strip images, sample evenly-spaced horizontal sections.
+    
+    Returns list of (section_image, y_offset) tuples.
+    """
+    h, w = image.shape[:2]
+    
+    if h <= section_height * 2:
+        return [(image, 0)]
+    
+    # Evenly space sections along the strip
+    spacing = (h - section_height) // (num_sections - 1) if num_sections > 1 else 0
+    sections = []
+    
+    for i in range(num_sections):
+        y_start = min(i * spacing, h - section_height)
+        section = image[y_start:y_start + section_height, :]
+        sections.append((section, y_start))
+        
+    logger.info(f"  Sampled {len(sections)} sections of {section_height}px from {h}px strip")
+    return sections
 
 
 def _select_informative_patches(patches: list[dict], max_patches: int = MAX_PATCHES) -> list[dict]:
@@ -89,11 +125,11 @@ def _select_informative_patches(patches: list[dict], max_patches: int = MAX_PATC
 
 def preprocess_ohrc(pixel_data: np.ndarray, metadata: ImageMetadata) -> tuple[list[dict], np.ndarray]:
     """
-    OHRC Preprocessing Pipeline:
-    1. Ensure grayscale
-    2. Convert to 8-bit if needed
-    3. Downsample for processing efficiency
-    4. Apply CLAHE for shadow/highlight recovery
+    OHRC Preprocessing Pipeline (optimized for pushbroom strips):
+    1. Ensure grayscale + 8-bit
+    2. Sample sections from the strip (don't downsample entire image)
+    3. Downsample each section to ~1024px wide
+    4. CLAHE
     5. Extract patches with smart selection
     """
     logger.info("Preprocessing OHRC image...")
@@ -108,28 +144,55 @@ def preprocess_ohrc(pixel_data: np.ndarray, metadata: ImageMetadata) -> tuple[li
 
     logger.info(f"  8-bit: shape={image.shape}, range=[{image.min()}, {image.max()}]")
 
-    # Downsample large images
-    image, scale = _smart_downsample(image)
+    h, w = image.shape[:2]
     
-    # Store scale factor in metadata for coordinate mapping
-    metadata._preprocessing_scale = scale
+    # For strip images: sample sections, then downsample each section
+    all_patches = []
+    
+    if h > 4096:
+        # Strip image — sample sections along the height
+        sections = _sample_strip_sections(image, num_sections=MAX_STRIP_SECTIONS, section_height=2048)
+        
+        for section_img, y_offset in sections:
+            # Downsample section width to manageable size
+            sec_downsampled, scale = _smart_downsample(section_img)
+            sec_enhanced = apply_clahe(sec_downsampled, 
+                                       clip_limit=settings.CLAHE_CLIP_LIMIT,
+                                       tile_grid_size=settings.CLAHE_TILE_GRID)
+            
+            patches = extract_patches(sec_enhanced, patch_size=settings.PATCH_SIZE, 
+                                      overlap=settings.PATCH_OVERLAP)
+            
+            # Adjust offsets to account for section position and scale
+            for p in patches:
+                p["offset_y"] = int(p["offset_y"] / scale) + y_offset
+                p["offset_x"] = int(p["offset_x"] / scale)
+                p["_scale"] = scale
+            
+            all_patches.extend(patches)
+        
+        metadata._preprocessing_scale = sections[0][0].shape[1] / w if sections else 1.0
+    else:
+        # Normal image — just downsample
+        image, scale = _smart_downsample(image)
+        metadata._preprocessing_scale = scale
+        image = apply_clahe(image, clip_limit=settings.CLAHE_CLIP_LIMIT,
+                           tile_grid_size=settings.CLAHE_TILE_GRID)
+        all_patches = extract_patches(image, patch_size=settings.PATCH_SIZE,
+                                      overlap=settings.PATCH_OVERLAP)
 
-    # CLAHE
-    image = apply_clahe(
-        image,
-        clip_limit=settings.CLAHE_CLIP_LIMIT,
-        tile_grid_size=settings.CLAHE_TILE_GRID,
-    )
-    logger.info(f"  CLAHE applied: range=[{image.min()}, {image.max()}]")
+    logger.info(f"  Total patches before selection: {len(all_patches)}")
 
-    # Save preview
-    save_preview(image, metadata.filepath)
+    # Save a preview (use middle section or downsampled image)
+    preview_img, _ = _smart_downsample(pixel_data if pixel_data.ndim == 2 else ensure_grayscale(pixel_data),
+                                        max_dim=2048)
+    preview_img = apply_clahe(preview_img if preview_img.dtype == np.uint8 else normalize_to_8bit(preview_img))
+    save_preview(preview_img, metadata.filepath)
 
-    # Extract patches + smart selection
-    patches = extract_patches(image, patch_size=settings.PATCH_SIZE, overlap=settings.PATCH_OVERLAP)
-    patches = _select_informative_patches(patches, MAX_PATCHES)
+    # Smart selection
+    all_patches = _select_informative_patches(all_patches, MAX_PATCHES)
 
-    return patches, image
+    return all_patches, preview_img
 
 
 def preprocess_tmc(pixel_data: np.ndarray, metadata: ImageMetadata) -> tuple[list[dict], np.ndarray]:
