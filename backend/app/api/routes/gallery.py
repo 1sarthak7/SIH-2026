@@ -169,7 +169,10 @@ async def run_demo(request: DemoRunRequest, background_tasks: BackgroundTasks):
 
 
 async def _run_pipeline_task(job_id: str, path_a: str, path_b: str):
-    """Background task that runs the full pipeline."""
+    """Background task that runs the full pipeline in a thread executor."""
+    import asyncio
+    import traceback
+
     try:
         def progress_callback(status, progress, step, message):
             _demo_jobs[job_id].update({
@@ -180,10 +183,25 @@ async def _run_pipeline_task(job_id: str, path_a: str, path_b: str):
             })
 
         _demo_jobs[job_id]["status"] = "processing"
-        _demo_jobs[job_id]["message"] = "Loading pipeline..."
+        _demo_jobs[job_id]["message"] = "Initializing pipeline..."
 
-        pipeline = ProcessingPipeline()
-        result = await pipeline.run(path_a, path_b, progress_callback=progress_callback)
+        # Run the blocking pipeline in a thread so event loop stays responsive
+        loop = asyncio.get_event_loop()
+
+        def _run_sync():
+            """Synchronous wrapper that runs the async pipeline."""
+            import asyncio as _asyncio
+            _loop = _asyncio.new_event_loop()
+            _asyncio.set_event_loop(_loop)
+            try:
+                pipeline = ProcessingPipeline()
+                return _loop.run_until_complete(
+                    pipeline.run(path_a, path_b, progress_callback=progress_callback)
+                )
+            finally:
+                _loop.close()
+
+        result = await loop.run_in_executor(None, _run_sync)
 
         # Serialize to dict for JSON response
         result_dict = result.model_dump() if hasattr(result, 'model_dump') else result.dict()
@@ -194,7 +212,6 @@ async def _run_pipeline_task(job_id: str, path_a: str, path_b: str):
         _demo_jobs[job_id]["result"] = result_dict
 
     except Exception as e:
-        import traceback
         tb = traceback.format_exc()
         logger.error(f"Demo pipeline failed: {e}\n{tb}")
         _demo_jobs[job_id]["status"] = "failed"
