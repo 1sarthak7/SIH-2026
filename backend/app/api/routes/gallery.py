@@ -179,16 +179,24 @@ async def _run_pipeline_task(job_id: str, path_a: str, path_b: str):
                 "message": message,
             })
 
+        _demo_jobs[job_id]["status"] = "processing"
+        _demo_jobs[job_id]["message"] = "Loading pipeline..."
+
         pipeline = ProcessingPipeline()
         result = await pipeline.run(path_a, path_b, progress_callback=progress_callback)
-        result.job_id = job_id
+
+        # Serialize to dict for JSON response
+        result_dict = result.model_dump() if hasattr(result, 'model_dump') else result.dict()
+        result_dict["job_id"] = job_id
 
         _demo_jobs[job_id]["status"] = "completed"
         _demo_jobs[job_id]["progress_percent"] = 100
-        _demo_jobs[job_id]["result"] = result
+        _demo_jobs[job_id]["result"] = result_dict
 
     except Exception as e:
-        logger.error(f"Demo pipeline failed: {e}")
+        import traceback
+        tb = traceback.format_exc()
+        logger.error(f"Demo pipeline failed: {e}\n{tb}")
         _demo_jobs[job_id]["status"] = "failed"
         _demo_jobs[job_id]["error"] = str(e)
 

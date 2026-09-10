@@ -176,7 +176,7 @@ def verify_matches(
         - stats: Verification statistics
     """
     if not raw_matches:
-        return np.array([]), np.array([]), np.array([]), {"error": "No matches to verify"}
+        return np.zeros((0, 2)), np.zeros((0, 2)), np.array([]), {"error": "No matches to verify"}
 
     # Aggregate all matches from all patch pairs
     all_kpts_a = np.vstack([m["keypoints_a"] for m in raw_matches])
