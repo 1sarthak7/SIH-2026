@@ -35,6 +35,7 @@ export default function LiveDemo() {
   const [progress, setProgress] = useState({ status: "", progress_percent: 0, current_step: "", message: "" });
   const [results, setResults] = useState<ResultsResponse | null>(null);
   const [error, setError] = useState("");
+  const [elapsedTime, setElapsedTime] = useState(0);
 
   // Fetch gallery images
   useEffect(() => {
@@ -112,10 +113,19 @@ export default function LiveDemo() {
           return;
         }
 
-        setTimeout(poll, 1500);
+        setTimeout(poll, 1000);
       };
 
-      setTimeout(poll, 2000);
+      // Start elapsed timer
+      const startTime = Date.now();
+      const timerInterval = setInterval(() => {
+        setElapsedTime(Math.round((Date.now() - startTime) / 1000));
+      }, 500);
+
+      setTimeout(async () => {
+        await poll();
+        clearInterval(timerInterval);
+      }, 1500);
     } catch (e) {
       setError(e instanceof Error ? e.message : "Unknown error");
       setDemoState("error");
@@ -336,9 +346,14 @@ export default function LiveDemo() {
             currentStep={progress.current_step}
             message={progress.message}
           />
-          <p className={styles.processingHint}>
-            Running on Tesla T4 GPU • Real Chandrayaan-2 data
-          </p>
+          <div className={styles.processingMeta}>
+            <div className={styles.elapsedTimer}>
+              ⏱️ {elapsedTime}s elapsed
+            </div>
+            <p className={styles.processingHint}>
+              Running on Tesla T4 GPU • Real Chandrayaan-2 data
+            </p>
+          </div>
         </section>
       )}
 

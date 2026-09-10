@@ -342,9 +342,22 @@
 }
 
 .processingHint {
-  margin-top: 24px;
+  margin-top: 8px;
   color: #4a5568;
   font-size: 0.85rem;
+}
+
+.processingMeta {
+  margin-top: 24px;
+  text-align: center;
+}
+
+.elapsedTimer {
+  font-size: 1.8rem;
+  font-weight: 700;
+  color: #a5b4fc;
+  font-family: 'JetBrains Mono', monospace;
+  margin-bottom: 8px;
 }
 
 /* ── Results ── */
