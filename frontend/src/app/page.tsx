@@ -4,7 +4,10 @@ import React, { useState, useCallback } from "react";
 import styles from "./page.module.css";
 import UploadDropzone from "@/components/UploadDropzone";
 import ProcessingStatus from "@/components/ProcessingStatus";
+import MatchViewer from "@/components/MatchViewer";
+import ConfidenceGauge from "@/components/ConfidenceGauge";
 import { uploadImages, pollUntilComplete, ResultsResponse, JobStatus } from "@/lib/api";
+import { DEMO_RESULTS } from "@/lib/demoData";
 
 type AppState = "upload" | "processing" | "results" | "error";
 
@@ -42,6 +45,11 @@ export default function Home() {
       setAppState("error");
     }
   }, [fileA, fileB]);
+
+  const handleDemo = useCallback(() => {
+    setResults(DEMO_RESULTS);
+    setAppState("results");
+  }, []);
 
   const handleReset = useCallback(() => {
     setAppState("upload");
@@ -130,15 +138,22 @@ export default function Home() {
             />
           </div>
 
-          <button
-            className={`${styles.submitBtn} ${!canSubmit ? styles.disabled : ""}`}
-            onClick={handleSubmit}
-            disabled={!canSubmit}
-          >
-            <span className={styles.btnIcon}>🚀</span>
-            <span>Find Correspondences</span>
-            <span className={styles.btnArrow}>→</span>
-          </button>
+          <div className={styles.buttonRow}>
+            <button
+              className={`${styles.submitBtn} ${!canSubmit ? styles.disabled : ""}`}
+              onClick={handleSubmit}
+              disabled={!canSubmit}
+            >
+              <span className={styles.btnIcon}>🚀</span>
+              <span>Find Correspondences</span>
+              <span className={styles.btnArrow}>→</span>
+            </button>
+
+            <button className={styles.demoBtn} onClick={handleDemo}>
+              <span>▶</span>
+              <span>View Demo Results</span>
+            </button>
+          </div>
 
           {/* Pipeline preview */}
           <div className={styles.pipelinePreview}>
@@ -179,26 +194,94 @@ export default function Home() {
             </button>
           </div>
 
-          {/* Stats Cards */}
-          <div className={styles.statsGrid}>
-            <div className={styles.statCard}>
-              <div className={styles.statValue}>{results.total_matches}</div>
-              <div className={styles.statLabel}>Verified Matches</div>
-            </div>
-            <div className={`${styles.statCard} ${styles.statHighlight}`}>
-              <div className={styles.statValue}>{results.confidence_score}%</div>
-              <div className={styles.statLabel}>Confidence Score</div>
-            </div>
-            <div className={styles.statCard}>
-              <div className={styles.statValue}>{results.processing_time_seconds}s</div>
-              <div className={styles.statLabel}>Processing Time</div>
-            </div>
-            <div className={styles.statCard}>
-              <div className={styles.statValue}>
-                {results.image_a.instrument.toUpperCase()} ↔ {results.image_b.instrument.toUpperCase()}
+          {/* Top Stats Row: Gauge + Cards */}
+          <div className={styles.topStatsRow}>
+            <div className={styles.gaugeCard}>
+              <ConfidenceGauge score={results.confidence_score} />
+              <div className={styles.gaugeMeta}>
+                <div className={styles.gaugeMetaItem}>
+                  <span className={styles.gaugeMetaValue}>{results.total_matches}</span>
+                  <span className={styles.gaugeMetaLabel}>Verified</span>
+                </div>
+                <div className={styles.gaugeMetaItem}>
+                  <span className={styles.gaugeMetaValue}>{results.processing_time_seconds}s</span>
+                  <span className={styles.gaugeMetaLabel}>Time</span>
+                </div>
               </div>
-              <div className={styles.statLabel}>Instruments</div>
             </div>
+
+            <div className={styles.statsCards}>
+              <div className={styles.miniStatCard}>
+                <div className={styles.miniStatIcon}>🔬</div>
+                <div>
+                  <div className={styles.miniStatValue}>
+                    {typeof results.stats.raw_matches === "number" ? results.stats.raw_matches : "—"}
+                  </div>
+                  <div className={styles.miniStatLabel}>Raw LoFTR Matches</div>
+                </div>
+              </div>
+              <div className={styles.miniStatCard}>
+                <div className={styles.miniStatIcon}>🧹</div>
+                <div>
+                  <div className={styles.miniStatValue}>
+                    {typeof results.stats.after_mnn === "number" ? results.stats.after_mnn : "—"}
+                  </div>
+                  <div className={styles.miniStatLabel}>After MNN Filter</div>
+                </div>
+              </div>
+              <div className={styles.miniStatCard}>
+                <div className={styles.miniStatIcon}>✅</div>
+                <div>
+                  <div className={styles.miniStatValue}>{results.total_matches}</div>
+                  <div className={styles.miniStatLabel}>MAGSAC++ Verified</div>
+                </div>
+              </div>
+              <div className={styles.miniStatCard}>
+                <div className={styles.miniStatIcon}>📏</div>
+                <div>
+                  <div className={styles.miniStatValue}>
+                    {typeof results.stats.avg_reprojection_error === "number"
+                      ? `${(results.stats.avg_reprojection_error as number).toFixed(2)} px`
+                      : "—"}
+                  </div>
+                  <div className={styles.miniStatLabel}>Avg Reprojection Error</div>
+                </div>
+              </div>
+              <div className={styles.miniStatCard}>
+                <div className={styles.miniStatIcon}>☀️</div>
+                <div>
+                  <div className={styles.miniStatValue}>
+                    {typeof results.stats.sun_elevation_a === "number"
+                      ? `${(results.stats.sun_elevation_a as number).toFixed(1)}° / ${(results.stats.sun_elevation_b as number).toFixed(1)}°`
+                      : `${results.image_a.instrument.toUpperCase()} ↔ ${results.image_b.instrument.toUpperCase()}`}
+                  </div>
+                  <div className={styles.miniStatLabel}>Sun Elevation (A / B)</div>
+                </div>
+              </div>
+              <div className={styles.miniStatCard}>
+                <div className={styles.miniStatIcon}>🗺️</div>
+                <div>
+                  <div className={styles.miniStatValue}>
+                    {results.image_a.bbox.lat_min.toFixed(2)}° to {results.image_a.bbox.lat_max.toFixed(2)}°
+                  </div>
+                  <div className={styles.miniStatLabel}>Latitude Range (South Pole)</div>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          {/* Match Viewer */}
+          <div className={styles.viewerSection}>
+            <h3 className={styles.sectionTitle}>Feature Correspondence Map</h3>
+            <MatchViewer
+              matches={results.matches}
+              imageAWidth={results.image_a.width}
+              imageAHeight={results.image_a.height}
+              imageBWidth={results.image_b.width}
+              imageBHeight={results.image_b.height}
+              instrumentA={results.image_a.instrument}
+              instrumentB={results.image_b.instrument}
+            />
           </div>
 
           {/* Image Info */}
@@ -207,7 +290,7 @@ export default function Home() {
               <h3 className={styles.imageInfoTitle}>Image A — {results.image_a.instrument.toUpperCase()}</h3>
               <div className={styles.imageInfoMeta}>
                 <span>{results.image_a.filename}</span>
-                <span>{results.image_a.width}×{results.image_a.height}px</span>
+                <span>{results.image_a.width.toLocaleString()}×{results.image_a.height.toLocaleString()} px</span>
                 <span>{results.image_a.resolution_m} m/px</span>
               </div>
             </div>
@@ -215,7 +298,7 @@ export default function Home() {
               <h3 className={styles.imageInfoTitle}>Image B — {results.image_b.instrument.toUpperCase()}</h3>
               <div className={styles.imageInfoMeta}>
                 <span>{results.image_b.filename}</span>
-                <span>{results.image_b.width}×{results.image_b.height}px</span>
+                <span>{results.image_b.width.toLocaleString()}×{results.image_b.height.toLocaleString()} px</span>
                 <span>{results.image_b.resolution_m} m/px</span>
               </div>
             </div>
@@ -292,7 +375,7 @@ export default function Home() {
                     {key.replace(/_/g, " ")}
                   </span>
                   <span className={styles.statsDetailValue}>
-                    {typeof value === "number" ? value.toFixed(2) : String(value)}
+                    {typeof value === "number" ? value.toFixed(4) : String(value)}
                   </span>
                 </div>
               ))}
@@ -317,7 +400,7 @@ export default function Home() {
 
       {/* Footer */}
       <footer className={styles.footer}>
-        <p>Built for Smart India Hackathon 2026 • Powered by LoFTR + Kornia + GDAL</p>
+        <p>Built for Smart India Hackathon 2026 • Powered by LoFTR + Kornia + PyTorch</p>
       </footer>
     </main>
   );

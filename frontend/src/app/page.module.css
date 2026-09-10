@@ -550,6 +550,134 @@
   line-height: 1.6;
 }
 
+/* ── Button Row ── */
+.buttonRow {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  gap: 16px;
+  margin-top: 8px;
+  flex-wrap: wrap;
+}
+
+/* ── Demo Button ── */
+.demoBtn {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 28px;
+  border-radius: 12px;
+  border: 1px solid #2a3040;
+  background: rgba(99, 102, 241, 0.08);
+  color: #a5b4fc;
+  font-size: 0.95rem;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.3s ease;
+}
+
+.demoBtn:hover {
+  background: rgba(99, 102, 241, 0.18);
+  border-color: #6366f1;
+  transform: translateY(-2px);
+  box-shadow: 0 4px 20px rgba(99, 102, 241, 0.2);
+}
+
+/* ── Top Stats Row ── */
+.topStatsRow {
+  display: grid;
+  grid-template-columns: 280px 1fr;
+  gap: 24px;
+  margin-bottom: 32px;
+}
+
+.gaugeCard {
+  background: #111827;
+  border: 1px solid #1e2432;
+  border-radius: 16px;
+  padding: 24px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 16px;
+}
+
+.gaugeMeta {
+  display: flex;
+  gap: 32px;
+}
+
+.gaugeMetaItem {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+.gaugeMetaValue {
+  font-size: 1.3rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.gaugeMetaLabel {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+}
+
+.statsCards {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 12px;
+}
+
+.miniStatCard {
+  background: #111827;
+  border: 1px solid #1e2432;
+  border-radius: 12px;
+  padding: 16px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  transition: border-color 0.2s;
+}
+
+.miniStatCard:hover {
+  border-color: #2a3a50;
+}
+
+.miniStatIcon {
+  font-size: 1.5rem;
+  flex-shrink: 0;
+}
+
+.miniStatValue {
+  font-size: 1.05rem;
+  font-weight: 700;
+  color: var(--text-primary);
+  font-family: 'JetBrains Mono', monospace;
+}
+
+.miniStatLabel {
+  font-size: 0.7rem;
+  color: var(--text-muted);
+  margin-top: 2px;
+}
+
+/* ── Viewer Section ── */
+.viewerSection {
+  margin-bottom: 32px;
+}
+
+.sectionTitle {
+  font-size: 1.1rem;
+  font-weight: 600;
+  color: var(--text-secondary);
+  margin-bottom: 16px;
+}
+
 /* ── Footer ── */
 .footer {
   margin-top: auto;
@@ -590,4 +718,13 @@
   .badges {
     display: none;
   }
+
+  .topStatsRow {
+    grid-template-columns: 1fr;
+  }
+
+  .statsCards {
+    grid-template-columns: repeat(2, 1fr);
+  }
 }
+

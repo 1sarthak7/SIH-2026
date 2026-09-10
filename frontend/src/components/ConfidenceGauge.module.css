@@ -1,0 +1,23 @@
+.gauge {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.svg {
+  filter: drop-shadow(0 0 20px rgba(99, 102, 241, 0.1));
+}
+
+.scoreText {
+  font-size: 32px;
+  font-weight: 800;
+  font-family: 'Inter', sans-serif;
+}
+
+.labelText {
+  font-size: 13px;
+  font-weight: 500;
+  font-family: 'Inter', sans-serif;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
