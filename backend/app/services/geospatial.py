@@ -1,71 +1,115 @@
 """
-Geospatial Mapping Service — Step 6
+Geospatial Mapping Service — Step 6 (Updated for ISRO geometry CSV)
 
-Converts pixel coordinates to Lunar geographic coordinates and
-computes confidence scores.
+Uses the per-pixel geometry grid from ISRO PRADAN for accurate
+Lunar coordinate mapping, with fallback to bounding box interpolation.
 """
 
 import numpy as np
-import rasterio
+import pandas as pd
+from scipy.interpolate import griddata
 from typing import Optional
 from loguru import logger
 
 from app.models.schemas import ImageMetadata, MatchPoint
 
 
-def pixel_to_geo(
-    pixel_coords: np.ndarray,
-    metadata: ImageMetadata,
-) -> np.ndarray:
+class GeometryMapper:
     """
-    Convert pixel coordinates (x, y) to geographic coordinates (lon, lat).
-
-    Uses the affine transform from the original GeoTIFF metadata.
-    For images without real geospatial data (e.g., PNGs), returns pixel-based coords.
-
-    Args:
-        pixel_coords: (N, 2) array of (x, y) pixel coordinates
-        metadata: ImageMetadata with CRS and filepath
-
-    Returns:
-        (N, 2) array of (longitude, latitude)
+    Maps pixel coordinates to Lunar lat/lon using ISRO geometry CSV data.
+    
+    The geometry CSV provides (Longitude, Latitude, Pixel, Scan) samples
+    every ~100 pixels. We interpolate between these samples for sub-grid accuracy.
     """
-    if metadata.crs in ("UNKNOWN", "PIXEL", ""):
-        # No real CRS — return scaled pixel coordinates as pseudo-geographic
-        logger.debug("  No real CRS, using pixel-based coordinates")
-        geo_coords = np.zeros_like(pixel_coords, dtype=np.float64)
-        geo_coords[:, 0] = metadata.bbox_lon_min + pixel_coords[:, 0] * (
-            (metadata.bbox_lon_max - metadata.bbox_lon_min) / metadata.width
+
+    def __init__(self, geometry_df: Optional[pd.DataFrame] = None, metadata: Optional[ImageMetadata] = None):
+        self.geometry_df = geometry_df
+        self.metadata = metadata
+        self._interpolator_lon = None
+        self._interpolator_lat = None
+
+        if geometry_df is not None and len(geometry_df) > 0:
+            self._build_interpolator()
+
+    def _build_interpolator(self):
+        """Pre-compute interpolation grid from geometry CSV."""
+        df = self.geometry_df
+        
+        # CSV columns: Longitude, Latitude, Pixel, Scan
+        points = df[["Pixel", "Scan"]].values  # (x, y) in pixel space
+        lons = df["Longitude"].values
+        lats = df["Latitude"].values
+
+        self._grid_points = points
+        self._grid_lons = lons
+        self._grid_lats = lats
+
+        logger.info(
+            f"  Built geometry interpolator from {len(df)} control points "
+            f"(lat: {lats.min():.4f} to {lats.max():.4f}, "
+            f"lon: {lons.min():.4f} to {lons.max():.4f})"
         )
-        geo_coords[:, 1] = metadata.bbox_lat_max - pixel_coords[:, 1] * (
-            (metadata.bbox_lat_max - metadata.bbox_lat_min) / metadata.height
-        )
-        return geo_coords
 
-    try:
-        with rasterio.open(metadata.filepath) as src:
-            transform = src.transform
+    def pixel_to_lunar(self, pixel_coords: np.ndarray) -> np.ndarray:
+        """
+        Convert pixel (x, y) to Lunar (lon, lat).
 
-            geo_coords = np.zeros((len(pixel_coords), 2), dtype=np.float64)
-            for i, (px, py) in enumerate(pixel_coords):
-                # rasterio.transform.xy converts (row, col) → (x, y)
-                x, y = rasterio.transform.xy(transform, int(py), int(px))
-                geo_coords[i] = [x, y]  # [lon, lat] or [easting, northing]
+        Args:
+            pixel_coords: (N, 2) array of (x, y) pixel coordinates
 
-            return geo_coords
-    except Exception as e:
-        logger.warning(f"  Failed to convert coordinates: {e}")
-        # Fallback to linear interpolation from bounding box
-        geo_coords = np.zeros((len(pixel_coords), 2), dtype=np.float64)
+        Returns:
+            (N, 2) array of (longitude, latitude)
+        """
+        if len(pixel_coords) == 0:
+            return np.array([]).reshape(0, 2)
+
+        if self._grid_points is not None:
+            return self._interpolate(pixel_coords)
+        elif self.metadata:
+            return self._bbox_fallback(pixel_coords)
+        else:
+            return pixel_coords.astype(np.float64)
+
+    def _interpolate(self, pixel_coords: np.ndarray) -> np.ndarray:
+        """Interpolate coordinates using the geometry grid."""
+        try:
+            lons = griddata(
+                self._grid_points, self._grid_lons,
+                pixel_coords, method="linear", fill_value=np.nan
+            )
+            lats = griddata(
+                self._grid_points, self._grid_lats,
+                pixel_coords, method="linear", fill_value=np.nan
+            )
+
+            # Fill NaN values with nearest neighbor
+            nan_mask = np.isnan(lons) | np.isnan(lats)
+            if nan_mask.any():
+                lons_nn = griddata(
+                    self._grid_points, self._grid_lons,
+                    pixel_coords[nan_mask], method="nearest"
+                )
+                lats_nn = griddata(
+                    self._grid_points, self._grid_lats,
+                    pixel_coords[nan_mask], method="nearest"
+                )
+                lons[nan_mask] = lons_nn
+                lats[nan_mask] = lats_nn
+
+            return np.column_stack([lons, lats])
+        except Exception as e:
+            logger.warning(f"Interpolation failed: {e}, using bbox fallback")
+            return self._bbox_fallback(pixel_coords)
+
+    def _bbox_fallback(self, pixel_coords: np.ndarray) -> np.ndarray:
+        """Linear interpolation from bounding box corners."""
+        m = self.metadata
+        geo = np.zeros((len(pixel_coords), 2), dtype=np.float64)
         for i, (px, py) in enumerate(pixel_coords):
-            lon = metadata.bbox_lon_min + (px / metadata.width) * (
-                metadata.bbox_lon_max - metadata.bbox_lon_min
-            )
-            lat = metadata.bbox_lat_max - (py / metadata.height) * (
-                metadata.bbox_lat_max - metadata.bbox_lat_min
-            )
-            geo_coords[i] = [lon, lat]
-        return geo_coords
+            lon = m.bbox_lon_min + (px / m.width) * (m.bbox_lon_max - m.bbox_lon_min)
+            lat = m.bbox_lat_max - (py / m.height) * (m.bbox_lat_max - m.bbox_lat_min)
+            geo[i] = [lon, lat]
+        return geo
 
 
 def compute_reprojection_errors(
@@ -73,20 +117,7 @@ def compute_reprojection_errors(
     keypoints_b: np.ndarray,
     fundamental_matrix: Optional[np.ndarray],
 ) -> np.ndarray:
-    """
-    Compute Sampson distance (reprojection error) for each match.
-
-    The Sampson distance measures how well each match agrees with the
-    estimated fundamental matrix. Lower = better.
-
-    Args:
-        keypoints_a: (N, 2) keypoints in image A
-        keypoints_b: (N, 2) keypoints in image B
-        fundamental_matrix: 3×3 fundamental matrix (or None)
-
-    Returns:
-        (N,) array of reprojection errors (in pixels)
-    """
+    """Compute Sampson distance for each match pair."""
     if fundamental_matrix is None or len(keypoints_a) == 0:
         return np.zeros(len(keypoints_a))
 
@@ -94,86 +125,39 @@ def compute_reprojection_errors(
     if F.shape != (3, 3):
         return np.zeros(len(keypoints_a))
 
-    # Convert to homogeneous coordinates
     ones = np.ones((len(keypoints_a), 1))
-    pts_a = np.hstack([keypoints_a, ones])  # (N, 3)
-    pts_b = np.hstack([keypoints_b, ones])  # (N, 3)
+    pts_a = np.hstack([keypoints_a, ones])
+    pts_b = np.hstack([keypoints_b, ones])
 
-    # Sampson distance: d = (b^T F a)^2 / (||Fa||^2_[1:2] + ||F^T b||^2_[1:2])
-    Fa = (F @ pts_a.T).T  # (N, 3)
-    Ftb = (F.T @ pts_b.T).T  # (N, 3)
+    Fa = (F @ pts_a.T).T
+    Ftb = (F.T @ pts_b.T).T
 
     numerator = np.sum(pts_b * Fa, axis=1) ** 2
     denominator = Fa[:, 0] ** 2 + Fa[:, 1] ** 2 + Ftb[:, 0] ** 2 + Ftb[:, 1] ** 2
 
-    errors = np.sqrt(numerator / (denominator + 1e-10))
-    return errors
+    return np.sqrt(numerator / (denominator + 1e-10))
 
 
-def compute_spatial_spread(
-    keypoints: np.ndarray,
-    image_width: int,
-    image_height: int,
-) -> float:
-    """
-    Compute how well-distributed the matches are across the image.
-
-    Divides the image into a grid and measures what fraction of grid cells
-    contain at least one match. Spatially spread matches = higher quality.
-
-    Returns:
-        Float in [0, 1] — 1.0 = perfect spread, 0.0 = all clustered
-    """
+def compute_spatial_spread(keypoints: np.ndarray, width: int, height: int) -> float:
+    """Compute match distribution across an 8×8 grid."""
     if len(keypoints) < 2:
         return 0.0
-
-    grid_size = 8  # 8×8 grid
-    cell_w = image_width / grid_size
-    cell_h = image_height / grid_size
-
+    grid = 8
     occupied = set()
     for x, y in keypoints:
-        gx = min(int(x / cell_w), grid_size - 1)
-        gy = min(int(y / cell_h), grid_size - 1)
+        gx = min(int(x / (width / grid)), grid - 1)
+        gy = min(int(y / (height / grid)), grid - 1)
         occupied.add((gx, gy))
-
-    spread = len(occupied) / (grid_size * grid_size)
-    return spread
+    return len(occupied) / (grid * grid)
 
 
-def compute_confidence_score(
-    num_matches: int,
-    reprojection_errors: np.ndarray,
-    spatial_spread: float,
-) -> float:
-    """
-    Compute an overall confidence score (0-100%).
-
-    Weighted composite of:
-    - Match count (40% weight): More matches = higher confidence
-    - Reprojection error (35% weight): Lower error = higher confidence
-    - Spatial spread (25% weight): More distributed = higher confidence
-
-    Args:
-        num_matches: Number of verified matches
-        reprojection_errors: Array of per-match errors
-        spatial_spread: Spatial distribution score (0-1)
-
-    Returns:
-        Confidence score (0-100)
-    """
-    # Match count score: saturates at 200 matches
+def compute_confidence_score(num_matches: int, reproj_errors: np.ndarray, spread: float) -> float:
+    """Composite confidence score (0-100%)."""
     match_score = min(num_matches / 200.0, 1.0) * 40.0
-
-    # Error score: lower is better, penalized above 5px
-    avg_error = np.mean(reprojection_errors) if len(reprojection_errors) > 0 else 5.0
-    error_score = max(1.0 - avg_error / 5.0, 0.0) * 35.0
-
-    # Spatial spread score
-    spread_score = spatial_spread * 25.0
-
-    total = match_score + error_score + spread_score
-    return round(total, 1)
+    avg_err = np.mean(reproj_errors) if len(reproj_errors) > 0 else 5.0
+    error_score = max(1.0 - avg_err / 5.0, 0.0) * 35.0
+    spread_score = spread * 25.0
+    return round(match_score + error_score + spread_score, 1)
 
 
 def map_matches_to_coordinates(
@@ -183,43 +167,40 @@ def map_matches_to_coordinates(
     metadata_a: ImageMetadata,
     metadata_b: ImageMetadata,
     verification_stats: dict,
+    geometry_a: Optional[pd.DataFrame] = None,
+    geometry_b: Optional[pd.DataFrame] = None,
 ) -> tuple[list[MatchPoint], float, dict]:
     """
-    Full geospatial mapping pipeline:
-    1. Convert pixel → lunar coordinates for both images
-    2. Compute reprojection errors
-    3. Compute spatial spread
-    4. Calculate confidence score
-
-    Returns:
-        - matches: List of MatchPoint objects with pixel + lunar coords
-        - confidence_score: Overall confidence (0-100)
-        - stats: Processing statistics
+    Full geospatial mapping pipeline using ISRO geometry data.
     """
     logger.info(f"Mapping {len(keypoints_a)} matches to lunar coordinates...")
 
     if len(keypoints_a) == 0:
         return [], 0.0, {"error": "No matches to map"}
 
-    # Step 1: Convert pixel → geographic coordinates
-    geo_a = pixel_to_geo(keypoints_a, metadata_a)
-    geo_b = pixel_to_geo(keypoints_b, metadata_b)
+    # Build mappers (prefer geometry CSV, fall back to bbox)
+    mapper_a = GeometryMapper(geometry_a, metadata_a)
+    mapper_b = GeometryMapper(geometry_b, metadata_b)
 
-    # Step 2: Compute reprojection errors
+    # Convert pixel → lunar
+    geo_a = mapper_a.pixel_to_lunar(keypoints_a)
+    geo_b = mapper_b.pixel_to_lunar(keypoints_b)
+
+    # Reprojection errors
     F = verification_stats.get("fundamental_matrix")
     if F is not None:
         F = np.array(F)
     reproj_errors = compute_reprojection_errors(keypoints_a, keypoints_b, F)
 
-    # Step 3: Compute spatial spread
+    # Spatial spread
     spread_a = compute_spatial_spread(keypoints_a, metadata_a.width, metadata_a.height)
     spread_b = compute_spatial_spread(keypoints_b, metadata_b.width, metadata_b.height)
-    spatial_spread = (spread_a + spread_b) / 2.0
+    spread = (spread_a + spread_b) / 2.0
 
-    # Step 4: Confidence score
-    confidence_score = compute_confidence_score(len(keypoints_a), reproj_errors, spatial_spread)
+    # Confidence
+    score = compute_confidence_score(len(keypoints_a), reproj_errors, spread)
 
-    # Step 5: Build MatchPoint objects
+    # Build match points
     matches = []
     for i in range(len(keypoints_a)):
         matches.append(MatchPoint(
@@ -237,15 +218,11 @@ def map_matches_to_coordinates(
     stats = {
         "avg_reprojection_error": float(np.mean(reproj_errors)),
         "max_reprojection_error": float(np.max(reproj_errors)) if len(reproj_errors) > 0 else 0.0,
-        "spatial_spread_a": float(spread_a),
-        "spatial_spread_b": float(spread_b),
-        "spatial_spread_avg": float(spatial_spread),
+        "spatial_spread_avg": float(spread),
+        "coordinate_source_a": "geometry_csv" if geometry_a is not None else "bbox_interpolation",
+        "coordinate_source_b": "geometry_csv" if geometry_b is not None else "bbox_interpolation",
     }
 
-    logger.info(
-        f"  Confidence: {confidence_score}% | "
-        f"Avg error: {stats['avg_reprojection_error']:.2f}px | "
-        f"Spread: {spatial_spread:.2f}"
-    )
+    logger.info(f"  ✅ Confidence: {score}% | Avg error: {stats['avg_reprojection_error']:.2f}px")
 
-    return matches, confidence_score, stats
+    return matches, score, stats
