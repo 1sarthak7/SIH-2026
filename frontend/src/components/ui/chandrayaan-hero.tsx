@@ -53,18 +53,17 @@ const navItems = [
 
 const ChandrayaanHero = () => {
   return (
-    <section className="h-screen w-full">
+    <section style={{ height: "100vh", width: "100%", maxHeight: "56.25vw" }}>
       <div className="relative h-full w-full overflow-hidden rounded-2xl md:rounded-[2rem]">
 
-        {/* Background video — space/lunar footage */}
-        <video
-          autoPlay
-          loop
-          muted
-          playsInline
-          className="absolute inset-0 h-full w-full object-cover"
-          src="https://cdn.pixabay.com/video/2024/04/10/207670_large.mp4"
-          poster="https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?w=1920&q=80"
+        {/* Background — static lunar surface image (reliable, no buffering) */}
+        <div
+          className="absolute inset-0 h-full w-full"
+          style={{
+            backgroundImage: "url('https://images.unsplash.com/photo-1446776811953-b23d57bd21aa?w=1920&q=80')",
+            backgroundSize: "cover",
+            backgroundPosition: "center 40%",
+          }}
         />
 
         {/* Noise overlay */}
@@ -78,14 +77,20 @@ const ChandrayaanHero = () => {
         {/* Gradient overlay */}
         <div className="pointer-events-none absolute inset-0 bg-gradient-to-b from-black/30 via-transparent to-black/60" />
 
-        {/* Navbar — centered pill at top */}
+        {/* Navbar */}
         <nav className="absolute left-1/2 top-0 z-20 -translate-x-1/2">
-          <div className="flex items-center gap-3 rounded-b-2xl bg-black px-4 py-2 sm:gap-6 md:gap-12 md:rounded-b-3xl md:px-8 lg:gap-14">
+          <div
+            className="flex items-center rounded-b-2xl px-4 py-2 sm:px-6 md:rounded-b-3xl md:px-8"
+            style={{
+              backgroundColor: "#000000",
+              gap: "clamp(12px, 3vw, 56px)",
+            }}
+          >
             {navItems.map((item) => (
               <Link
                 key={item.label}
                 href={item.href}
-                className="text-[10px] transition-colors sm:text-xs md:text-sm"
+                className="whitespace-nowrap text-[10px] transition-colors sm:text-xs md:text-sm"
                 style={{ color: "rgba(225, 224, 204, 0.8)" }}
                 onMouseEnter={(e) => (e.currentTarget.style.color = "#E1E0CC")}
                 onMouseLeave={(e) => (e.currentTarget.style.color = "rgba(225, 224, 204, 0.8)")}
@@ -96,21 +101,24 @@ const ChandrayaanHero = () => {
           </div>
         </nav>
 
-        {/* Hero content — bottom aligned, like Prisma */}
+        {/* Hero content */}
         <div className="absolute bottom-0 left-0 right-0 px-4 pb-2 sm:px-6 md:px-10">
           <div className="grid grid-cols-12 items-end gap-4">
 
-            {/* Massive title — left side */}
+            {/* Title */}
             <div className="col-span-12 lg:col-span-8">
               <h1
-                className="font-medium leading-[0.85] tracking-[-0.07em] text-[18vw] sm:text-[16vw] md:text-[15vw] lg:text-[14vw] xl:text-[13vw] 2xl:text-[14vw]"
-                style={{ color: "#E1E0CC" }}
+                className="font-medium leading-[0.85] tracking-[-0.07em]"
+                style={{
+                  color: "#E1E0CC",
+                  fontSize: "clamp(48px, 11vw, 220px)",
+                }}
               >
                 <WordsPullUp text="Chandrayaan" showAsterisk />
               </h1>
             </div>
 
-            {/* Description + CTA — right side */}
+            {/* Description + CTA */}
             <div className="col-span-12 flex flex-col gap-5 pb-6 lg:col-span-4 lg:pb-10">
 
               <motion.p
