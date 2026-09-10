@@ -6,6 +6,7 @@ import UploadDropzone from "@/components/UploadDropzone";
 import ProcessingStatus from "@/components/ProcessingStatus";
 import MatchViewer from "@/components/MatchViewer";
 import ConfidenceGauge from "@/components/ConfidenceGauge";
+import { ChandrayaanHero } from "@/components/ui/chandrayaan-hero";
 import { uploadImages, pollUntilComplete, ResultsResponse, JobStatus } from "@/lib/api";
 import { DEMO_RESULTS } from "@/lib/demoData";
 
@@ -63,57 +64,8 @@ export default function Home() {
 
   return (
     <main className={styles.main}>
-      {/* Header */}
-      <header className={styles.header}>
-        <div className={styles.headerContent}>
-          <div className={styles.logo}>
-            <span className={styles.logoIcon}>🌙</span>
-            <div>
-              <h1 className={styles.logoTitle}>Chandrayaan-2</h1>
-              <p className={styles.logoSubtitle}>Image Correspondence System</p>
-            </div>
-          </div>
-          <div className={styles.badges}>
-            <span className={styles.badge}>SIH 2026</span>
-            <span className={styles.badge}>ISRO</span>
-            <span className={styles.badgeAccent}>AI-Powered</span>
-          </div>
-        </div>
-      </header>
-
-      {/* Hero */}
-      {appState === "upload" && (
-        <section className={styles.hero}>
-          <div className={styles.heroGlow} />
-          <h2 className={styles.heroTitle}>
-            Multi-Modal Feature{" "}
-            <span className={styles.gradient}>Correspondence</span>
-          </h2>
-          <p className={styles.heroDesc}>
-            Upload two Chandrayaan-2 images from different instruments to find
-            matching features across modalities, scales, and illumination conditions.
-          </p>
-
-          {/* Instrument Cards */}
-          <div className={styles.instruments}>
-            <div className={styles.instrumentCard}>
-              <div className={styles.instrumentIcon}>🔭</div>
-              <div className={styles.instrumentName}>OHRC</div>
-              <div className={styles.instrumentRes}>0.25 m/px</div>
-            </div>
-            <div className={styles.instrumentCard}>
-              <div className={styles.instrumentIcon}>📷</div>
-              <div className={styles.instrumentName}>TMC-2</div>
-              <div className={styles.instrumentRes}>5 m/px</div>
-            </div>
-            <div className={styles.instrumentCard}>
-              <div className={styles.instrumentIcon}>🌈</div>
-              <div className={styles.instrumentName}>IIRS</div>
-              <div className={styles.instrumentRes}>80 m/px · 256 bands</div>
-            </div>
-          </div>
-        </section>
-      )}
+      {/* Hero Section */}
+      {appState === "upload" && <ChandrayaanHero />}
 
       {/* Upload Section */}
       {appState === "upload" && (
