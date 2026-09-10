@@ -12,7 +12,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from loguru import logger
 
 from app.core.config import settings
-from app.api.routes import upload, jobs, results
+from app.api.routes import upload, jobs, results, gallery
 
 
 @asynccontextmanager
@@ -72,6 +72,7 @@ app.add_middleware(
 app.include_router(upload.router, prefix="/api", tags=["Upload"])
 app.include_router(jobs.router, prefix="/api", tags=["Jobs"])
 app.include_router(results.router, prefix="/api", tags=["Results"])
+app.include_router(gallery.router, tags=["Gallery"])
 
 
 # ──────────────────────────────────────────────
