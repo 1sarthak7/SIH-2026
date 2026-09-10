@@ -197,11 +197,10 @@ def preprocess_ohrc(pixel_data: np.ndarray, metadata: ImageMetadata) -> tuple[li
 
 def preprocess_tmc(pixel_data: np.ndarray, metadata: ImageMetadata) -> tuple[list[dict], np.ndarray]:
     """
-    TMC-2 Preprocessing Pipeline:
+    TMC-2 Preprocessing Pipeline (strip-aware):
     1. Handle multi-band / 16-bit data
-    2. Downsample
-    3. CLAHE
-    4. Smart patch extraction
+    2. Strip sampling for tall images
+    3. CLAHE + smart patch extraction
     """
     logger.info("Preprocessing TMC image...")
 
@@ -221,22 +220,38 @@ def preprocess_tmc(pixel_data: np.ndarray, metadata: ImageMetadata) -> tuple[lis
 
     logger.info(f"  8-bit: shape={image.shape}, range=[{image.min()}, {image.max()}]")
 
-    # Downsample
-    image, scale = _smart_downsample(image)
-    metadata._preprocessing_scale = scale
+    h, w = image.shape[:2]
+    all_patches = []
 
-    # CLAHE
-    image = apply_clahe(image, clip_limit=2.5, tile_grid_size=8)
-    logger.info(f"  Processed: shape={image.shape}, range=[{image.min()}, {image.max()}]")
+    if h > 4096:
+        # Strip image — sample sections
+        sections = _sample_strip_sections(image, num_sections=MAX_STRIP_SECTIONS, section_height=2048)
+        for section_img, y_offset in sections:
+            sec_downsampled, scale = _smart_downsample(section_img)
+            sec_enhanced = apply_clahe(sec_downsampled, clip_limit=2.5, tile_grid_size=8)
+            patches = extract_patches(sec_enhanced, patch_size=settings.PATCH_SIZE, overlap=settings.PATCH_OVERLAP)
+            for p in patches:
+                p["offset_y"] = int(p["offset_y"] / scale) + y_offset
+                p["offset_x"] = int(p["offset_x"] / scale)
+                p["_scale"] = scale
+            all_patches.extend(patches)
+        metadata._preprocessing_scale = sections[0][0].shape[1] / w if sections else 1.0
+    else:
+        image, scale = _smart_downsample(image)
+        metadata._preprocessing_scale = scale
+        image = apply_clahe(image, clip_limit=2.5, tile_grid_size=8)
+        all_patches = extract_patches(image, patch_size=settings.PATCH_SIZE, overlap=settings.PATCH_OVERLAP)
 
-    # Save preview
-    save_preview(image, metadata.filepath)
+    logger.info(f"  Total patches before selection: {len(all_patches)}")
 
-    # Extract patches + smart selection
-    patches = extract_patches(image, patch_size=settings.PATCH_SIZE, overlap=settings.PATCH_OVERLAP)
-    patches = _select_informative_patches(patches, MAX_PATCHES)
+    # Preview
+    preview_img, _ = _smart_downsample(pixel_data if pixel_data.ndim == 2 else ensure_grayscale(pixel_data), max_dim=2048)
+    preview_img = apply_clahe(preview_img if preview_img.dtype == np.uint8 else normalize_to_8bit(preview_img))
+    save_preview(preview_img, metadata.filepath)
 
-    return patches, image
+    all_patches = _select_informative_patches(all_patches, MAX_PATCHES)
+
+    return all_patches, preview_img
 
 
 def preprocess_iirs(pixel_data: np.ndarray, metadata: ImageMetadata) -> tuple[list[dict], np.ndarray]:

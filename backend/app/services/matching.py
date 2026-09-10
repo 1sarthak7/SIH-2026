@@ -138,6 +138,11 @@ class FeatureMatcher:
         This reduces LoFTR calls from N² to N×K.
         """
         all_matches = []
+
+        if not patches_a or not patches_b:
+            logger.warning("No patches to match (one or both images produced 0 patches)")
+            return []
+
         K = min(3, len(patches_b))  # Match each patch against top-K nearest
 
         # Compute patch centers for spatial proximity
