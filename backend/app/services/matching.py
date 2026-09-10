@@ -131,31 +131,39 @@ class FeatureMatcher:
         confidence_threshold: Optional[float] = None,
     ) -> list[dict]:
         """
-        Match all patch pairs from two images.
+        Match patches between two images using spatial proximity.
 
-        For efficiency, only matches patches that could potentially overlap
-        (based on their spatial position in the original images).
-
-        Args:
-            patches_a: List of patch dicts from image A
-            patches_b: List of patch dicts from image B
-            confidence_threshold: Minimum confidence threshold
-
-        Returns:
-            List of match dicts, each containing:
-            - keypoints_a: coordinates in original image A (offset-corrected)
-            - keypoints_b: coordinates in original image B (offset-corrected)
-            - confidence: match confidence scores
-            - patch_a_id: source patch ID from image A
-            - patch_b_id: source patch ID from image B
+        Instead of N×N all-vs-all matching, each patch in A is matched
+        against only the K nearest patches in B (by spatial position).
+        This reduces LoFTR calls from N² to N×K.
         """
         all_matches = []
+        K = min(3, len(patches_b))  # Match each patch against top-K nearest
 
-        total_pairs = len(patches_a) * len(patches_b)
-        logger.info(f"Matching {len(patches_a)} × {len(patches_b)} = {total_pairs} patch pairs...")
+        # Compute patch centers for spatial proximity
+        centers_b = np.array([
+            [p["offset_x"] + 256, p["offset_y"] + 256] for p in patches_b
+        ], dtype=np.float32)
+
+        total_pairs = len(patches_a) * K
+        logger.info(
+            f"Matching {len(patches_a)} × {K} nearest = {total_pairs} patch pairs "
+            f"(reduced from {len(patches_a) * len(patches_b)} all-vs-all)"
+        )
 
         for i, patch_a in enumerate(patches_a):
-            for j, patch_b in enumerate(patches_b):
+            center_a = np.array([
+                patch_a["offset_x"] + 256,
+                patch_a["offset_y"] + 256
+            ], dtype=np.float32)
+
+            # Find K nearest patches in B
+            distances = np.linalg.norm(centers_b - center_a, axis=1)
+            nearest_indices = np.argsort(distances)[:K]
+
+            for j in nearest_indices:
+                patch_b = patches_b[j]
+
                 result = self.match_pair(
                     patch_a["image"],
                     patch_b["image"],
@@ -163,7 +171,6 @@ class FeatureMatcher:
                 )
 
                 if result["num_matches"] > 0:
-                    # Convert patch-local coordinates to full-image coordinates
                     kpts_a_global = result["keypoints_a"].copy()
                     kpts_a_global[:, 0] += patch_a["offset_x"]
                     kpts_a_global[:, 1] += patch_a["offset_y"]
@@ -181,15 +188,15 @@ class FeatureMatcher:
                     })
 
             # Progress logging
-            if (i + 1) % 5 == 0 or i == len(patches_a) - 1:
-                logger.info(f"  Processed patch {i + 1}/{len(patches_a)}")
+            if (i + 1) % 10 == 0 or i == len(patches_a) - 1:
+                matches_so_far = sum(m["confidence"].shape[0] for m in all_matches)
+                logger.info(f"  Patch {i + 1}/{len(patches_a)} — {matches_so_far} matches so far")
 
-        # Aggregate all matches
         if not all_matches:
             logger.warning("No matches found across any patch pairs!")
             return []
 
         total_matches = sum(m["confidence"].shape[0] for m in all_matches)
-        logger.info(f"  Total raw matches across all patches: {total_matches}")
+        logger.info(f"  Total raw matches: {total_matches}")
 
         return all_matches
