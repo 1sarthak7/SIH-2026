@@ -68,34 +68,33 @@ def _parse_pds4_xml(xml_path: str) -> dict:
         meta["instrument"] = InstrumentType.UNKNOWN
 
     # --- Image dimensions and data type from Array_2D_Image ---
-    # Search without namespace (more robust)
     for elem in root.iter():
         tag = elem.tag.split("}")[-1] if "}" in elem.tag else elem.tag
 
         if tag == "data_type":
             meta["data_type"] = elem.text.strip()
-        elif tag == "elements":
-            parent = None
-            # Walk up to find axis_name
-            for axis in root.iter():
-                axis_tag = axis.tag.split("}")[-1] if "}" in axis.tag else axis.tag
-                if axis_tag == "Axis_Array":
-                    name_elem = None
-                    elems_elem = None
-                    for child in axis:
-                        child_tag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
-                        if child_tag == "axis_name":
-                            name_elem = child
-                        elif child_tag == "elements":
-                            elems_elem = child
-                    if name_elem is not None and elems_elem is not None:
-                        if name_elem.text.strip() == "Line":
-                            meta["lines"] = int(elems_elem.text.strip())
-                        elif name_elem.text.strip() == "Sample":
-                            meta["samples"] = int(elems_elem.text.strip())
-                        elif name_elem.text.strip() == "Band":
-                            meta["bands"] = int(elems_elem.text.strip())
-                    break
+
+    # Parse all Axis_Array elements for dimensions
+    for axis in root.iter():
+        axis_tag = axis.tag.split("}")[-1] if "}" in axis.tag else axis.tag
+        if axis_tag == "Axis_Array":
+            name_elem = None
+            elems_elem = None
+            for child in axis:
+                child_tag = child.tag.split("}")[-1] if "}" in child.tag else child.tag
+                if child_tag == "axis_name":
+                    name_elem = child
+                elif child_tag == "elements":
+                    elems_elem = child
+            if name_elem is not None and elems_elem is not None:
+                axis_name = name_elem.text.strip()
+                axis_count = int(elems_elem.text.strip())
+                if axis_name == "Line":
+                    meta["lines"] = axis_count
+                elif axis_name == "Sample":
+                    meta["samples"] = axis_count
+                elif axis_name == "Band":
+                    meta["bands"] = axis_count
 
     # --- ISDA-specific parameters ---
     for elem in root.iter():
