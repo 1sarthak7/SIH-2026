@@ -7,7 +7,7 @@ import { motion, useInView } from "framer-motion";
 import styles from "./page.module.css";
 import MatchViewer from "@/components/MatchViewer";
 import ConfidenceGauge from "@/components/ConfidenceGauge";
-import FileUpload, { DropZone, FileError, FileList, FileInfo } from "@/components/ui/file-upload";
+import { FishyFileDrop } from "@/components/ui/fishy-file-drop";
 import { ProgressiveFluxLoader } from "@/components/ui/progressive-flux-loader";
 import { uploadImages, pollUntilComplete, ResultsResponse, JobStatus } from "@/lib/api";
 import { DEMO_RESULTS } from "@/lib/demoData";
@@ -90,17 +90,22 @@ const TECH_STACK = [
 
 export default function Home() {
   const [appState, setAppState] = useState<AppState>("upload");
-  const [uploadFiles, setUploadFiles] = useState<FileInfo[]>([]);
+  const [fileA, setFileA] = useState<File | null>(null);
+  const [fileB, setFileB] = useState<File | null>(null);
   const [jobStatus, setJobStatus] = useState<JobStatus | null>(null);
   const [results, setResults] = useState<ResultsResponse | null>(null);
   const [error, setError] = useState("");
   const [jobId, setJobId] = useState("");
   const [processingProgress, setProcessingProgress] = useState(0);
 
-  const canSubmit = uploadFiles.length >= 2;
+  const canSubmit = fileA !== null && fileB !== null;
 
-  const handleFilesChange = useCallback((files: FileInfo[]) => {
-    setUploadFiles(files);
+  const handleFileA = useCallback((files: FileList) => {
+    if (files[0]) setFileA(files[0]);
+  }, []);
+
+  const handleFileB = useCallback((files: FileList) => {
+    if (files[0]) setFileB(files[0]);
   }, []);
 
   const handleSubmit = useCallback(async () => {
@@ -109,10 +114,9 @@ export default function Home() {
     setProcessingProgress(0);
 
     try {
-      const validFiles = uploadFiles.filter((f) => !f.error).map((f) => f.file);
-      if (validFiles.length < 2) throw new Error("Need at least 2 valid files.");
+      if (!fileA || !fileB) throw new Error("Need both images.");
 
-      const data = await uploadImages(validFiles[0], validFiles[1]);
+      const data = await uploadImages(fileA, fileB);
       setJobId(data.job_id);
 
       const result = await pollUntilComplete(data.job_id, (status) => {
@@ -148,7 +152,8 @@ export default function Home() {
 
   const handleReset = useCallback(() => {
     setAppState("upload");
-    setUploadFiles([]);
+    setFileA(null);
+    setFileB(null);
     setResults(null);
     setError("");
     setJobId("");
@@ -265,39 +270,89 @@ export default function Home() {
             </p>
           </Reveal>
           <Reveal delay={0.15}>
-            <div className={styles.uploadWrapper}>
-              <div className={styles.uploadCard}>
-                <FileUpload
-                  maxFiles={2}
-                  maxFileSizeMB={500}
-                  accept={{
-                    "image/*": [".img", ".tif", ".tiff", ".png", ".jpg", ".jpeg"],
-                    "application/fits": [".fits"],
-                  }}
-                  onFilesChange={handleFilesChange}
-                >
-                  <DropZone className={styles.dropzone} />
-                  <FileError />
-                  <FileList />
-                </FileUpload>
-
-                <div className={styles.actionRow}>
-                  <button
-                    className={styles.btnPrimary}
-                    onClick={handleSubmit}
-                    disabled={!canSubmit}
-                    style={{ opacity: canSubmit ? 1 : 0.4 }}
-                  >
-                    Start Processing
-                    <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
-                      <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
-                    </svg>
-                  </button>
-                  <button className={styles.btnSecondary} onClick={handleDemo}>
-                    Try Demo Data
-                  </button>
+            <div style={{ display: "flex", gap: 24, justifyContent: "center", flexWrap: "wrap" }}>
+              {/* Image A */}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+                <div style={{
+                  display: "flex", justifyContent: "center", alignItems: "center",
+                  background: "#161616", borderRadius: 22,
+                }}>
+                  <FishyFileDrop
+                    id="drop-image-a"
+                    width="300px"
+                    height="300px"
+                    padding="14px"
+                    backgroundImageWidth="96px"
+                    borderWidth="2px"
+                    borderColor="#363636"
+                    borderRadius="20px"
+                    shadow="0 2px 15px rgba(255, 255, 255, 0.1)"
+                    innerBorderRadius="10px"
+                    fishColor="white"
+                    waveColors={["#1b70a1", "#368cc1", "#50a8e0", "#6bc4ff"]}
+                    bubbleColor="rgba(255,255,255,0.8)"
+                    textColor="#fff"
+                    textStroke="#6BC4FF"
+                    textSize="20px"
+                    letterSpacingHover="8px"
+                    text={fileA ? fileA.name.slice(0, 16) : "Image A"}
+                    onFilesSelected={handleFileA}
+                  />
                 </div>
+                <span style={{ fontSize: "0.72rem", color: fileA ? "var(--accent-green)" : "var(--text-muted)", fontFamily: "JetBrains Mono, monospace" }}>
+                  {fileA ? `${(fileA.size / 1024 / 1024).toFixed(1)} MB` : "OHRC / TMC / IIRS"}
+                </span>
               </div>
+
+              {/* Image B */}
+              <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: 12 }}>
+                <div style={{
+                  display: "flex", justifyContent: "center", alignItems: "center",
+                  background: "#161616", borderRadius: 22,
+                }}>
+                  <FishyFileDrop
+                    id="drop-image-b"
+                    width="300px"
+                    height="300px"
+                    padding="14px"
+                    backgroundImageWidth="96px"
+                    borderWidth="2px"
+                    borderColor="#363636"
+                    borderRadius="20px"
+                    shadow="0 2px 15px rgba(255, 255, 255, 0.1)"
+                    innerBorderRadius="10px"
+                    fishColor="white"
+                    waveColors={["#1b70a1", "#368cc1", "#50a8e0", "#6bc4ff"]}
+                    bubbleColor="rgba(255,255,255,0.8)"
+                    textColor="#fff"
+                    textStroke="#6BC4FF"
+                    textSize="20px"
+                    letterSpacingHover="8px"
+                    text={fileB ? fileB.name.slice(0, 16) : "Image B"}
+                    onFilesSelected={handleFileB}
+                  />
+                </div>
+                <span style={{ fontSize: "0.72rem", color: fileB ? "var(--accent-green)" : "var(--text-muted)", fontFamily: "JetBrains Mono, monospace" }}>
+                  {fileB ? `${(fileB.size / 1024 / 1024).toFixed(1)} MB` : "OHRC / TMC / IIRS"}
+                </span>
+              </div>
+            </div>
+
+            <div className={styles.actionRow} style={{ marginTop: 32 }}>
+              <button
+                className={styles.btnPrimary}
+                onClick={handleSubmit}
+                disabled={!canSubmit}
+                style={{ opacity: canSubmit ? 1 : 0.4 }}
+              >
+                Start Processing
+                <svg width="16" height="16" viewBox="0 0 16 16" fill="none">
+                  <path d="M3 8h10M9 4l4 4-4 4" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/>
+                </svg>
+              </button>
+              <button className={styles.btnSecondary} onClick={handleDemo}>
+                Try Demo Data
+              </button>
             </div>
           </Reveal>
         </section>
