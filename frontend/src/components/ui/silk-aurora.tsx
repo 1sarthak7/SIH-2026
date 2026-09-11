@@ -149,10 +149,11 @@ export interface SilkAuroraProps extends React.HTMLAttributes<HTMLDivElement> {
   mouseInfluence?: number;
   interactive?: boolean;
   children?: React.ReactNode;
+  sideContent?: React.ReactNode;
 }
 
 const HEADLINE_CLASS =
-  "max-w-[820px] text-[13cqi] font-semibold leading-[0.86] tracking-normal text-white md:text-[8cqi] lg:text-[6.4cqi]";
+  "max-w-[720px] text-[11cqi] font-semibold leading-[0.88] tracking-[-0.02em] text-white md:text-[7cqi] lg:text-[5.8cqi]";
 
 export function SilkAurora({
   title,
@@ -170,6 +171,7 @@ export function SilkAurora({
   interactive = true,
   className,
   children,
+  sideContent,
   style,
   ...props
 }: SilkAuroraProps) {
@@ -424,8 +426,8 @@ export function SilkAurora({
     >
       <WebGLFallback className="absolute inset-0 h-full w-full" />
       {(title || subtitle || description || children) && (
-        <div className="relative z-10 mx-auto w-full max-w-[1240px] px-6 py-20 md:px-10 md:py-28">
-          <div className="max-w-[760px]">
+        <div className="relative z-10 mx-auto flex w-full max-w-[1240px] items-center px-6 py-20 md:px-10 md:py-28">
+          <div className="flex-1 max-w-[640px]">
             {subtitle && (
               <p className="mb-5 text-xs font-medium uppercase tracking-[0.24em] text-white/50">
                 {subtitle}
@@ -433,12 +435,17 @@ export function SilkAurora({
             )}
             {title && <h1 className={HEADLINE_CLASS}>{title}</h1>}
             {description && (
-              <p className="mt-7 max-w-[620px] text-base leading-relaxed text-white/68 md:text-xl">
+              <p className="mt-7 max-w-[520px] text-base leading-relaxed text-white/55 md:text-lg">
                 {description}
               </p>
             )}
             {children && <div className="mt-10">{children}</div>}
           </div>
+          {sideContent && (
+            <div className="hidden lg:flex flex-1 items-center justify-center">
+              {sideContent}
+            </div>
+          )}
         </div>
       )}
     </div>
@@ -470,8 +477,8 @@ export function SilkAurora({
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-1/3 bg-gradient-to-t from-black/55 to-transparent" />
 
         {(title || subtitle || description || children) && (
-          <div className="relative z-10 mx-auto w-full max-w-[1240px] px-6 py-20 md:px-10 md:py-28">
-            <div className="max-w-[760px]">
+          <div className="relative z-10 mx-auto flex w-full max-w-[1240px] items-center px-6 py-20 md:px-10 md:py-28">
+            <div className="flex-1 max-w-[640px]">
               {subtitle && (
                 <p className="mb-5 text-xs font-medium uppercase tracking-[0.24em] text-white/50">
                   {subtitle}
@@ -479,12 +486,17 @@ export function SilkAurora({
               )}
               {title && <h1 className={HEADLINE_CLASS}>{title}</h1>}
               {description && (
-                <p className="mt-7 max-w-[620px] text-base leading-relaxed text-white/68 md:text-xl">
+                <p className="mt-7 max-w-[520px] text-base leading-relaxed text-white/55 md:text-lg">
                   {description}
                 </p>
               )}
               {children && <div className="mt-10">{children}</div>}
             </div>
+            {sideContent && (
+              <div className="hidden lg:flex flex-1 items-center justify-center">
+                {sideContent}
+              </div>
+            )}
           </div>
         )}
       </div>
