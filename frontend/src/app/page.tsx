@@ -2,31 +2,44 @@
 
 import React, { useState, useCallback } from "react";
 import styles from "./page.module.css";
-import UploadDropzone from "@/components/UploadDropzone";
-import ProcessingStatus from "@/components/ProcessingStatus";
 import MatchViewer from "@/components/MatchViewer";
 import ConfidenceGauge from "@/components/ConfidenceGauge";
 import { ChandrayaanHero } from "@/components/ui/chandrayaan-hero";
+import FileUpload, { DropZone, FileError, FileList, FileInfo } from "@/components/ui/file-upload";
+import { ProgressiveFluxLoader } from "@/components/ui/progressive-flux-loader";
 import { uploadImages, pollUntilComplete, ResultsResponse, JobStatus } from "@/lib/api";
 import { DEMO_RESULTS } from "@/lib/demoData";
 
 type AppState = "upload" | "processing" | "results" | "error";
 
+const PIPELINE_PHASES = [
+  { at: 0, label: "ingesting" },
+  { at: 15, label: "preprocessing" },
+  { at: 40, label: "matching features" },
+  { at: 70, label: "verifying" },
+  { at: 85, label: "mapping coordinates" },
+  { at: 100, label: "complete" },
+];
+
 export default function Home() {
   const [appState, setAppState] = useState<AppState>("upload");
-  const [fileA, setFileA] = useState<File | null>(null);
-  const [fileB, setFileB] = useState<File | null>(null);
+  const [uploadFiles, setUploadFiles] = useState<FileInfo[]>([]);
   const [jobStatus, setJobStatus] = useState<JobStatus | null>(null);
   const [results, setResults] = useState<ResultsResponse | null>(null);
   const [error, setError] = useState<string>("");
   const [jobId, setJobId] = useState<string>("");
+  const [processingProgress, setProcessingProgress] = useState(0);
 
-  const canSubmit = fileA !== null && fileB !== null;
+  const canSubmit = uploadFiles.length >= 2;
 
   const handleSubmit = useCallback(async () => {
-    if (!fileA || !fileB) return;
+    if (uploadFiles.length < 2) return;
+
+    const fileA = uploadFiles[0].file;
+    const fileB = uploadFiles[1].file;
 
     setAppState("processing");
+    setProcessingProgress(0);
     setError("");
 
     try {
@@ -35,7 +48,10 @@ export default function Home() {
 
       const result = await pollUntilComplete(
         uploadResponse.job_id,
-        (status) => setJobStatus(status)
+        (status) => {
+          setJobStatus(status);
+          setProcessingProgress(status.progress_percent);
+        }
       );
 
       setResults(result);
@@ -45,7 +61,7 @@ export default function Home() {
       setError(message);
       setAppState("error");
     }
-  }, [fileA, fileB]);
+  }, [uploadFiles]);
 
   const handleDemo = useCallback(() => {
     setResults(DEMO_RESULTS);
@@ -54,13 +70,21 @@ export default function Home() {
 
   const handleReset = useCallback(() => {
     setAppState("upload");
-    setFileA(null);
-    setFileB(null);
+    setUploadFiles([]);
     setJobStatus(null);
     setResults(null);
     setError("");
     setJobId("");
+    setProcessingProgress(0);
   }, []);
+
+  const handleFileSelectChange = (files: FileInfo[]) => {
+    setUploadFiles(files);
+  };
+
+  const handleRemoveFile = (fileId: string) => {
+    setUploadFiles(uploadFiles.filter(f => f.id !== fileId));
+  };
 
   return (
     <main className={styles.main}>
@@ -69,28 +93,38 @@ export default function Home() {
 
       {/* Upload Section */}
       {appState === "upload" && (
-        <section className={styles.uploadSection}>
-          <div className={styles.uploadGrid}>
-            <UploadDropzone
-              label="Image A"
-              onFileSelect={setFileA}
-              selectedFile={fileA}
-              instrumentHint="e.g., OHRC high-resolution image"
-            />
-            <div className={styles.vsIndicator}>
-              <div className={styles.vsLine} />
-              <span className={styles.vsText}>↔</span>
-              <div className={styles.vsLine} />
-            </div>
-            <UploadDropzone
-              label="Image B"
-              onFileSelect={setFileB}
-              selectedFile={fileB}
-              instrumentHint="e.g., TMC or IIRS image"
-            />
+        <section className="mx-auto w-full max-w-3xl px-6 py-16">
+          <div className="mb-8 text-center">
+            <h2 className="text-2xl font-semibold text-white mb-2">Upload Chandrayaan-2 Images</h2>
+            <p className="text-sm text-white/50">
+              Select two satellite images from different instruments to find matching features
+            </p>
           </div>
 
-          <div className={styles.buttonRow}>
+          <FileUpload
+            files={uploadFiles}
+            onFileSelectChange={handleFileSelectChange}
+            multiple={true}
+            accept=".img,.tif,.tiff,.png,.jpg,.jpeg"
+            maxSize={500}
+            maxCount={2}
+            disabled={false}
+          >
+            <div className="space-y-4">
+              <DropZone
+                prompt="Drop two Chandrayaan-2 images here, or click to browse"
+                className="min-h-[160px] border-white/15 bg-white/[0.03] text-white/60 hover:border-white/30 hover:bg-white/[0.05]"
+              />
+              <FileError />
+              <FileList
+                onClear={() => setUploadFiles([])}
+                onRemove={handleRemoveFile}
+                canResume={false}
+              />
+            </div>
+          </FileUpload>
+
+          <div className="mt-8 flex items-center justify-center gap-4">
             <button
               className={`${styles.submitBtn} ${!canSubmit ? styles.disabled : ""}`}
               onClick={handleSubmit}
@@ -106,31 +140,23 @@ export default function Home() {
               <span>View Demo Results</span>
             </button>
           </div>
-
-          {/* Pipeline preview */}
-          <div className={styles.pipelinePreview}>
-            <div className={styles.pipelineStep}>📥 Ingest</div>
-            <div className={styles.pipelineArrow}>→</div>
-            <div className={styles.pipelineStep}>⚙️ Preprocess</div>
-            <div className={styles.pipelineArrow}>→</div>
-            <div className={styles.pipelineStep}>🧠 LoFTR Match</div>
-            <div className={styles.pipelineArrow}>→</div>
-            <div className={styles.pipelineStep}>✅ Verify</div>
-            <div className={styles.pipelineArrow}>→</div>
-            <div className={styles.pipelineStep}>🌍 Map</div>
-          </div>
         </section>
       )}
 
       {/* Processing Section */}
-      {appState === "processing" && jobStatus && (
-        <section className={styles.processingSection}>
-          <ProcessingStatus
-            status={jobStatus.status}
-            progress={jobStatus.progress_percent}
-            currentStep={jobStatus.current_step}
-            message={jobStatus.message}
-          />
+      {appState === "processing" && (
+        <section className="flex min-h-[70vh] w-full items-center justify-center px-6 py-16 bg-[#050507]">
+          <div className="w-full max-w-lg">
+            <ProgressiveFluxLoader
+              value={processingProgress}
+              phases={PIPELINE_PHASES}
+              textClassName="!text-white/60"
+              barClassName="!bg-white/10"
+            />
+            <p className="mt-8 text-center text-sm text-white/40">
+              Running on Tesla T4 GPU • Real Chandrayaan-2 data
+            </p>
+          </div>
         </section>
       )}
 
@@ -259,7 +285,7 @@ export default function Home() {
           {/* Match Table */}
           {results.matches.length > 0 && (
             <div className={styles.tableContainer}>
-              <h3 className={styles.tableTitle}>Feature Correspondences</h3>
+              <h3 className={styles.tableTitle}>Match Coordinates</h3>
               <div className={styles.tableWrapper}>
                 <table className={styles.table}>
                   <thead>
