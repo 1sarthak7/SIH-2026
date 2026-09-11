@@ -1,51 +1,52 @@
 @import "tailwindcss";
 
 :root {
-  /* ── App palette ── */
-  --bg-primary: #060a14;
-  --bg-secondary: #0c1225;
-  --bg-card: rgba(15, 20, 40, 0.7);
-  --bg-glass: rgba(15, 20, 40, 0.6);
+  /* ── Light Editorial Palette ── */
+  --bg-primary: #FAFAF8;
+  --bg-secondary: #F2F1EE;
+  --bg-card: #FFFFFF;
+  --bg-elevated: #FFFFFF;
 
-  --text-primary: #e0e8ff;
-  --text-secondary: rgba(180, 195, 230, 0.75);
-  --text-muted: rgba(150, 165, 200, 0.5);
+  --text-primary: #1A1A1A;
+  --text-secondary: #555555;
+  --text-muted: #999999;
+  --text-caption: #AAAAAA;
 
-  --accent-blue: #5b8def;
-  --accent-cyan: #38bdf8;
-  --accent-green: #50dc8c;
-  --accent-purple: #a78bfa;
-  --accent-amber: #fbbf24;
-  --accent-red: #f87171;
+  --accent: #2563EB;
+  --accent-hover: #1D4ED8;
+  --accent-soft: rgba(37, 99, 235, 0.08);
+  --accent-green: #059669;
+  --accent-amber: #D97706;
+  --accent-red: #DC2626;
 
-  --border-subtle: rgba(120, 160, 255, 0.12);
-  --border-hover: rgba(120, 160, 255, 0.3);
+  --border: rgba(0, 0, 0, 0.08);
+  --border-strong: rgba(0, 0, 0, 0.15);
 
-  --glass-blur: blur(16px);
   --radius-sm: 8px;
   --radius-md: 12px;
   --radius-lg: 16px;
   --radius-xl: 20px;
+  --radius-2xl: 24px;
 
-  --shadow-card: 0 4px 24px rgba(0, 0, 0, 0.3);
-  --shadow-glow: 0 0 40px rgba(91, 141, 239, 0.15);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
+  --shadow-md: 0 4px 16px rgba(0, 0, 0, 0.06);
+  --shadow-lg: 0 8px 32px rgba(0, 0, 0, 0.08);
 
-  /* ── shadcn tokens (dark) ── */
-  --background: #060a14;
-  --foreground: #e0e8ff;
-  --primary: #5b8def;
-  --primary-foreground: #ffffff;
-  --secondary: #0c1225;
-  --secondary-foreground: #e0e8ff;
-  --muted: rgba(30, 40, 70, 0.6);
-  --muted-foreground: rgba(150, 165, 200, 0.5);
-  --accent: rgba(91, 141, 239, 0.15);
-  --accent-foreground: #e0e8ff;
-  --destructive: #f87171;
-  --destructive-foreground: #ffffff;
-  --border: rgba(120, 160, 255, 0.12);
-  --input: rgba(120, 160, 255, 0.12);
-  --ring: #5b8def;
+  /* shadcn tokens */
+  --background: #FAFAF8;
+  --foreground: #1A1A1A;
+  --primary: #2563EB;
+  --primary-foreground: #FFFFFF;
+  --secondary: #F2F1EE;
+  --secondary-foreground: #1A1A1A;
+  --muted: #F2F1EE;
+  --muted-foreground: #999999;
+  --accent-foreground: #1A1A1A;
+  --destructive: #DC2626;
+  --destructive-foreground: #FFFFFF;
+  --border: rgba(0, 0, 0, 0.08);
+  --input: rgba(0, 0, 0, 0.08);
+  --ring: #2563EB;
 }
 
 * {
@@ -67,22 +68,19 @@ html, body {
   -moz-osx-font-smoothing: grayscale;
 }
 
-body {
-  background-image:
-    radial-gradient(ellipse at 20% 50%, rgba(91, 141, 239, 0.06) 0%, transparent 50%),
-    radial-gradient(ellipse at 80% 20%, rgba(120, 80, 220, 0.04) 0%, transparent 50%),
-    radial-gradient(ellipse at 50% 80%, rgba(80, 220, 140, 0.03) 0%, transparent 50%);
-  background-attachment: fixed;
+h1, h2, h3, h4 {
+  font-family: "Instrument Serif", Georgia, serif;
+  font-weight: 400;
 }
 
 a {
-  color: var(--accent-blue);
+  color: var(--accent);
   text-decoration: none;
   transition: color 0.2s;
 }
 
 a:hover {
-  color: var(--accent-cyan);
+  color: var(--accent-hover);
 }
 
 /* Scrollbar */
@@ -93,30 +91,33 @@ a:hover {
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(120, 160, 255, 0.15);
+  background: rgba(0, 0, 0, 0.12);
   border-radius: 3px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(120, 160, 255, 0.25);
+  background: rgba(0, 0, 0, 0.2);
 }
 
-/* Mono utility */
 .mono {
   font-family: "JetBrains Mono", monospace;
 }
 
-/* Keyframes */
-@keyframes fadeIn {
-  from { opacity: 0; transform: translateY(12px); }
-  to { opacity: 1; transform: translateY(0); }
+.serif {
+  font-family: "Instrument Serif", Georgia, serif;
 }
 
-@keyframes slideUp {
-  from { opacity: 0; transform: translateY(24px); }
+/* Keyframes */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
 }
 
 @keyframes shimmer {
   0% { background-position: -200% center; }
   100% { background-position: 200% center; }
+}
+
+@keyframes spin-slow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
 }
