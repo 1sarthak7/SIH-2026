@@ -64,7 +64,8 @@ const FishyFileDrop: React.FC<FishyFileDropProps> = ({
   const [isDragActive, setIsDragActive] = useState(false);
   const [isHovered, setIsHovered] = useState(false);
   const inputRef = useRef<HTMLInputElement>(null);
-  const uniqueId = useRef(Math.random().toString(36).substring(2)).current;
+  const reactId = React.useId();
+  const uniqueId = reactId.replace(/:/g, "");
 
   const handleMouseEnter = useCallback(() => {
     setIsHovered(true);

@@ -1,12 +1,11 @@
 "use client";
 
 import React, { useState, useCallback, useRef, useEffect } from "react";
-import Image from "next/image";
-import Link from "next/link";
 import { motion, useInView } from "framer-motion";
 import styles from "./page.module.css";
 import MatchViewer from "@/components/MatchViewer";
 import ConfidenceGauge from "@/components/ConfidenceGauge";
+import Globe from "@/components/ui/globe";
 import { FishyFileDrop } from "@/components/ui/fishy-file-drop";
 import { ProgressiveFluxLoader } from "@/components/ui/progressive-flux-loader";
 import { uploadImages, pollUntilComplete, ResultsResponse, JobStatus } from "@/lib/api";
@@ -130,7 +129,7 @@ export default function Home() {
       setError(err instanceof Error ? err.message : "Processing failed.");
       setAppState("error");
     }
-  }, [canSubmit, uploadFiles]);
+  }, [canSubmit, fileA, fileB]);
 
   const handleDemo = useCallback(() => {
     setAppState("processing");
@@ -208,26 +207,7 @@ export default function Home() {
             </div>
           </Reveal>
           <Reveal className={styles.heroMoon} delay={0.3}>
-            <motion.div
-              animate={{ rotate: 360 }}
-              transition={{ duration: 120, repeat: Infinity, ease: "linear" }}
-              style={{
-                width: "clamp(280px, 28vw, 380px)",
-                height: "clamp(280px, 28vw, 380px)",
-                borderRadius: "50%",
-                overflow: "hidden",
-                filter: "drop-shadow(0 16px 48px rgba(0,0,0,0.12))",
-              }}
-            >
-              <Image
-                src="/moon.jpg"
-                alt="Moon"
-                width={400}
-                height={400}
-                className="rounded-full object-cover"
-                priority
-              />
-            </motion.div>
+            <Globe />
           </Reveal>
         </div>
       </section>
