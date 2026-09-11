@@ -1,6 +1,7 @@
 "use client";
 
-import React, { useState, useCallback } from "react";
+import React, { useState, useCallback, useRef } from "react";
+import { motion, useInView } from "framer-motion";
 import styles from "./page.module.css";
 import MatchViewer from "@/components/MatchViewer";
 import ConfidenceGauge from "@/components/ConfidenceGauge";
@@ -20,6 +21,32 @@ const PIPELINE_PHASES = [
   { at: 85, label: "mapping coordinates" },
   { at: 100, label: "complete" },
 ];
+
+/* ── Scroll-reveal wrapper ── */
+function Reveal({
+  children,
+  className,
+  delay = 0,
+}: {
+  children: React.ReactNode;
+  className?: string;
+  delay?: number;
+}) {
+  const ref = useRef<HTMLDivElement>(null);
+  const isInView = useInView(ref, { once: true, margin: "-60px" });
+
+  return (
+    <motion.div
+      ref={ref}
+      initial={{ opacity: 0, y: 40 }}
+      animate={isInView ? { opacity: 1, y: 0 } : {}}
+      transition={{ duration: 0.7, delay, ease: [0.16, 1, 0.3, 1] }}
+      className={className}
+    >
+      {children}
+    </motion.div>
+  );
+}
 
 export default function Home() {
   const [appState, setAppState] = useState<AppState>("upload");
@@ -88,79 +115,100 @@ export default function Home() {
 
   return (
     <main className={styles.main}>
-      {/* Hero Section */}
+      {/* ── Hero ── */}
       {appState === "upload" && <ChandrayaanHero />}
 
-      {/* Upload Section */}
+      {/* ── Upload ── */}
       {appState === "upload" && (
-        <section className="mx-auto w-full max-w-3xl px-6 py-16">
-          <div className="mb-8 text-center">
-            <h2 className="text-2xl font-semibold text-white mb-2">Upload Chandrayaan-2 Images</h2>
-            <p className="text-sm text-white/50">
-              Select two satellite images from different instruments to find matching features
-            </p>
-          </div>
-
-          <FileUpload
-            files={uploadFiles}
-            onFileSelectChange={handleFileSelectChange}
-            multiple={true}
-            accept=".img,.tif,.tiff,.png,.jpg,.jpeg"
-            maxSize={500}
-            maxCount={2}
-            disabled={false}
-          >
-            <div className="space-y-4">
-              <DropZone
-                prompt="Drop two Chandrayaan-2 images here, or click to browse"
-                className="min-h-[160px] border-white/15 bg-white/[0.03] text-white/60 hover:border-white/30 hover:bg-white/[0.05]"
-              />
-              <FileError />
-              <FileList
-                onClear={() => setUploadFiles([])}
-                onRemove={handleRemoveFile}
-                canResume={false}
-              />
+        <section className={styles.uploadWrapper}>
+          <Reveal>
+            <div className={styles.uploadHeading}>
+              <h2 className={styles.uploadTitle}>Upload Satellite Images</h2>
+              <p className={styles.uploadSubtitle}>
+                Select two Chandrayaan-2 images from different instruments to
+                find matching surface features.
+              </p>
             </div>
-          </FileUpload>
+          </Reveal>
 
-          <div className="mt-8 flex items-center justify-center gap-4">
-            <button
-              className={`${styles.submitBtn} ${!canSubmit ? styles.disabled : ""}`}
-              onClick={handleSubmit}
-              disabled={!canSubmit}
-            >
-              <span className={styles.btnIcon}>🚀</span>
-              <span>Find Correspondences</span>
-              <span className={styles.btnArrow}>→</span>
-            </button>
+          <Reveal delay={0.1}>
+            <div className={styles.uploadCard}>
+              <FileUpload
+                files={uploadFiles}
+                onFileSelectChange={handleFileSelectChange}
+                multiple={true}
+                accept=".img,.tif,.tiff,.png,.jpg,.jpeg"
+                maxSize={500}
+                maxCount={2}
+                disabled={false}
+              >
+                <div className={styles.uploadInner}>
+                  <DropZone
+                    prompt="Drop two images here, or click to browse"
+                    className={styles.dropzone}
+                  />
+                  <FileError />
+                  <FileList
+                    onClear={() => setUploadFiles([])}
+                    onRemove={handleRemoveFile}
+                    canResume={false}
+                  />
+                </div>
+              </FileUpload>
+            </div>
+          </Reveal>
 
-            <button className={styles.demoBtn} onClick={handleDemo}>
-              <span>▶</span>
-              <span>View Demo Results</span>
-            </button>
-          </div>
+          <Reveal delay={0.2}>
+            <div className={styles.actionRow}>
+              <button
+                className={`${styles.submitBtn} ${!canSubmit ? styles.disabled : ""}`}
+                onClick={handleSubmit}
+                disabled={!canSubmit}
+              >
+                <span>Find Correspondences</span>
+                <span className={styles.btnArrow}>→</span>
+              </button>
+
+              <button className={styles.demoBtn} onClick={handleDemo}>
+                <span>View Demo Results</span>
+              </button>
+            </div>
+          </Reveal>
+
+          {/* Pipeline steps */}
+          <Reveal delay={0.3}>
+            <div className={styles.pipelineRow}>
+              {["Ingest", "Preprocess", "LoFTR Match", "Verify", "Map"].map(
+                (step, i) => (
+                  <React.Fragment key={step}>
+                    {i > 0 && <span className={styles.pipelineSep} />}
+                    <span className={styles.pipelineChip}>{step}</span>
+                  </React.Fragment>
+                )
+              )}
+            </div>
+          </Reveal>
         </section>
       )}
 
-      {/* Processing Section */}
+      {/* ── Processing ── */}
       {appState === "processing" && (
-        <section className="flex min-h-[70vh] w-full items-center justify-center px-6 py-16 bg-[#050507]">
-          <div className="w-full max-w-lg">
+        <section className={styles.processingWrapper}>
+          <div className={styles.processingInner}>
             <ProgressiveFluxLoader
               value={processingProgress}
               phases={PIPELINE_PHASES}
-              textClassName="!text-white/60"
-              barClassName="!bg-white/10"
+              textClassName={styles.loaderLabel}
+              barClassName={styles.loaderBar}
             />
-            <p className="mt-8 text-center text-sm text-white/40">
-              Running on Tesla T4 GPU • Real Chandrayaan-2 data
+            <p className={styles.processingMeta}>
+              Tesla T4 GPU  /  Real Chandrayaan-2 data
             </p>
           </div>
         </section>
       )}
 
-      {/* Results Section */}
+      {/* ── Results ── */}
       {appState === "results" && results && (
         <section className={styles.resultsSection}>
           <div className={styles.resultsHeader}>
@@ -168,11 +216,10 @@ export default function Home() {
               <span className={styles.gradient}>Matching Results</span>
             </h2>
             <button className={styles.resetBtn} onClick={handleReset}>
-              ← New Analysis
+              New Analysis
             </button>
           </div>
 
-          {/* Top Stats Row: Gauge + Cards */}
           <div className={styles.topStatsRow}>
             <div className={styles.gaugeCard}>
               <ConfidenceGauge score={results.confidence_score} />
@@ -189,66 +236,22 @@ export default function Home() {
             </div>
 
             <div className={styles.statsCards}>
-              <div className={styles.miniStatCard}>
-                <div className={styles.miniStatIcon}>🔬</div>
-                <div>
-                  <div className={styles.miniStatValue}>
-                    {typeof results.stats.raw_matches === "number" ? results.stats.raw_matches : "—"}
-                  </div>
-                  <div className={styles.miniStatLabel}>Raw LoFTR Matches</div>
+              {[
+                { label: "Raw LoFTR Matches", value: typeof results.stats.raw_matches === "number" ? results.stats.raw_matches : "---" },
+                { label: "After MNN Filter", value: typeof results.stats.after_mnn === "number" ? results.stats.after_mnn : "---" },
+                { label: "MAGSAC++ Verified", value: results.total_matches },
+                { label: "Avg Reproj. Error", value: typeof results.stats.avg_reprojection_error === "number" ? `${(results.stats.avg_reprojection_error as number).toFixed(2)} px` : "---" },
+                { label: "Sun Elevation A/B", value: typeof results.stats.sun_elevation_a === "number" ? `${(results.stats.sun_elevation_a as number).toFixed(1)} / ${(results.stats.sun_elevation_b as number).toFixed(1)}` : `${results.image_a.instrument.toUpperCase()} / ${results.image_b.instrument.toUpperCase()}` },
+                { label: "Latitude Range", value: `${results.image_a.bbox.lat_min.toFixed(2)} to ${results.image_a.bbox.lat_max.toFixed(2)}` },
+              ].map((stat) => (
+                <div key={stat.label} className={styles.miniStatCard}>
+                  <div className={styles.miniStatValue}>{stat.value}</div>
+                  <div className={styles.miniStatLabel}>{stat.label}</div>
                 </div>
-              </div>
-              <div className={styles.miniStatCard}>
-                <div className={styles.miniStatIcon}>🧹</div>
-                <div>
-                  <div className={styles.miniStatValue}>
-                    {typeof results.stats.after_mnn === "number" ? results.stats.after_mnn : "—"}
-                  </div>
-                  <div className={styles.miniStatLabel}>After MNN Filter</div>
-                </div>
-              </div>
-              <div className={styles.miniStatCard}>
-                <div className={styles.miniStatIcon}>✅</div>
-                <div>
-                  <div className={styles.miniStatValue}>{results.total_matches}</div>
-                  <div className={styles.miniStatLabel}>MAGSAC++ Verified</div>
-                </div>
-              </div>
-              <div className={styles.miniStatCard}>
-                <div className={styles.miniStatIcon}>📏</div>
-                <div>
-                  <div className={styles.miniStatValue}>
-                    {typeof results.stats.avg_reprojection_error === "number"
-                      ? `${(results.stats.avg_reprojection_error as number).toFixed(2)} px`
-                      : "—"}
-                  </div>
-                  <div className={styles.miniStatLabel}>Avg Reprojection Error</div>
-                </div>
-              </div>
-              <div className={styles.miniStatCard}>
-                <div className={styles.miniStatIcon}>☀️</div>
-                <div>
-                  <div className={styles.miniStatValue}>
-                    {typeof results.stats.sun_elevation_a === "number"
-                      ? `${(results.stats.sun_elevation_a as number).toFixed(1)}° / ${(results.stats.sun_elevation_b as number).toFixed(1)}°`
-                      : `${results.image_a.instrument.toUpperCase()} ↔ ${results.image_b.instrument.toUpperCase()}`}
-                  </div>
-                  <div className={styles.miniStatLabel}>Sun Elevation (A / B)</div>
-                </div>
-              </div>
-              <div className={styles.miniStatCard}>
-                <div className={styles.miniStatIcon}>🗺️</div>
-                <div>
-                  <div className={styles.miniStatValue}>
-                    {results.image_a.bbox.lat_min.toFixed(2)}° to {results.image_a.bbox.lat_max.toFixed(2)}°
-                  </div>
-                  <div className={styles.miniStatLabel}>Latitude Range (South Pole)</div>
-                </div>
-              </div>
+              ))}
             </div>
           </div>
 
-          {/* Match Viewer */}
           <div className={styles.viewerSection}>
             <h3 className={styles.sectionTitle}>Feature Correspondence Map</h3>
             <MatchViewer
@@ -262,27 +265,25 @@ export default function Home() {
             />
           </div>
 
-          {/* Image Info */}
           <div className={styles.imageInfoGrid}>
             <div className={styles.imageInfoCard}>
-              <h3 className={styles.imageInfoTitle}>Image A — {results.image_a.instrument.toUpperCase()}</h3>
+              <h3 className={styles.imageInfoTitle}>Image A  --  {results.image_a.instrument.toUpperCase()}</h3>
               <div className={styles.imageInfoMeta}>
                 <span>{results.image_a.filename}</span>
-                <span>{results.image_a.width.toLocaleString()}×{results.image_a.height.toLocaleString()} px</span>
+                <span>{results.image_a.width.toLocaleString()} x {results.image_a.height.toLocaleString()} px</span>
                 <span>{results.image_a.resolution_m} m/px</span>
               </div>
             </div>
             <div className={styles.imageInfoCard}>
-              <h3 className={styles.imageInfoTitle}>Image B — {results.image_b.instrument.toUpperCase()}</h3>
+              <h3 className={styles.imageInfoTitle}>Image B  --  {results.image_b.instrument.toUpperCase()}</h3>
               <div className={styles.imageInfoMeta}>
                 <span>{results.image_b.filename}</span>
-                <span>{results.image_b.width.toLocaleString()}×{results.image_b.height.toLocaleString()} px</span>
+                <span>{results.image_b.width.toLocaleString()} x {results.image_b.height.toLocaleString()} px</span>
                 <span>{results.image_b.resolution_m} m/px</span>
               </div>
             </div>
           </div>
 
-          {/* Match Table */}
           {results.matches.length > 0 && (
             <div className={styles.tableContainer}>
               <h3 className={styles.tableTitle}>Match Coordinates</h3>
@@ -293,8 +294,8 @@ export default function Home() {
                       <th>#</th>
                       <th>Image A (px)</th>
                       <th>Image B (px)</th>
-                      <th>Lunar A (°)</th>
-                      <th>Lunar B (°)</th>
+                      <th>Lunar A</th>
+                      <th>Lunar B</th>
                       <th>Confidence</th>
                     </tr>
                   </thead>
@@ -320,10 +321,9 @@ export default function Home() {
                               className={styles.confidenceFill}
                               style={{
                                 width: `${m.confidence * 100}%`,
-                                background: m.confidence > 0.9
-                                  ? "#50dc8c"
-                                  : m.confidence > 0.7
-                                  ? "#fbbf24"
+                                background:
+                                  m.confidence > 0.9 ? "#50dc8c"
+                                  : m.confidence > 0.7 ? "#fbbf24"
                                   : "#f87171",
                               }}
                             />
@@ -343,15 +343,12 @@ export default function Home() {
             </div>
           )}
 
-          {/* Pipeline Statistics */}
           <div className={styles.statsDetail}>
             <h3 className={styles.tableTitle}>Pipeline Statistics</h3>
             <div className={styles.statsDetailGrid}>
               {Object.entries(results.stats).map(([key, value]) => (
                 <div key={key} className={styles.statsDetailItem}>
-                  <span className={styles.statsDetailKey}>
-                    {key.replace(/_/g, " ")}
-                  </span>
+                  <span className={styles.statsDetailKey}>{key.replace(/_/g, " ")}</span>
                   <span className={styles.statsDetailValue}>
                     {typeof value === "number" ? value.toFixed(4) : String(value)}
                   </span>
@@ -362,23 +359,22 @@ export default function Home() {
         </section>
       )}
 
-      {/* Error State */}
+      {/* ── Error ── */}
       {appState === "error" && (
         <section className={styles.errorSection}>
           <div className={styles.errorCard}>
-            <div className={styles.errorIcon}>⚠️</div>
             <h3 className={styles.errorTitle}>Processing Failed</h3>
             <p className={styles.errorMessage}>{error}</p>
             <button className={styles.resetBtn} onClick={handleReset}>
-              ← Try Again
+              Try Again
             </button>
           </div>
         </section>
       )}
 
-      {/* Footer */}
+      {/* ── Footer ── */}
       <footer className={styles.footer}>
-        <p>Built for Smart India Hackathon 2026 • Powered by LoFTR + Kornia + PyTorch</p>
+        <p>Built for Smart India Hackathon 2026  /  Powered by LoFTR + Kornia + PyTorch</p>
       </footer>
     </main>
   );
